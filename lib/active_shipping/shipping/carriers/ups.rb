@@ -89,6 +89,9 @@ module ActiveMerchant
         response = commit(:track, save_request(access_request + tracking_request), (options[:test] || false))
         parse_tracking_response(response, options)
       end
+
+      def shipment_confirm(origin, destination, packages, options = {})
+      end
       
       protected
       def build_access_request

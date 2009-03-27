@@ -175,7 +175,7 @@ class UPSTest < Test::Unit::TestCase
 
   def test_shipment_confirm
     response = nil
-    assert_nothing_raise do
+    assert_nothing_raised do
       response = @carrier.shipment_confirm(
         @locations[:ottawa],
         @locations[:beverly_hills],
