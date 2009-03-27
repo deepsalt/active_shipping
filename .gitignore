@@ -2,5 +2,6 @@
 test.xml
 sample.rb
 *.orig
+*.swp
 .dotest
 test/fixtures.yml
