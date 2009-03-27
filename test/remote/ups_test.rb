@@ -172,4 +172,14 @@ class UPSTest < Test::Unit::TestCase
     assert_not_equal prices_of.call(:fake_google_as_commercial), prices_of.call(:fake_google_as_residential)
     assert prices_of.call(:fake_home_as_residential).first > prices_of.call(:fake_home_as_commercial).first
   end
+
+  def test_shipment_confirm
+    response = nil
+    assert_nothing_raise do
+      response = @carrier.shipment_confirm(
+        @locations[:ottawa],
+        @locations[:beverly_hills],
+        @packages.values_at(:just_ounces))
+    end
+  end
 end
