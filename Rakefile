@@ -33,6 +33,16 @@ namespace :test do
     t.ruby_opts << '-rubygems'
     t.verbose = true
   end
+
+  namespace :remote do
+    ['ups', 'usps', 'fedex', 'shipwire'].each do |name|
+      Rake::TestTask.new(name.to_sym) do |t|
+        t.pattern = "test/remote/#{name}_test.rb"
+        t.ruby_opts << '-rubygems'
+        t.verbose = true
+      end
+    end
+  end
 end
 
 # Genereate the RDoc documentation
