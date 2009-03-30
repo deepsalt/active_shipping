@@ -104,9 +104,13 @@ module ActiveMerchant
       def shipment_accept(confirmation, options = {})
         shipment_accept_request = build_shipment_accept_request(confirmation)
         access_request = build_access_request
-        puts shipment_accept_request
         xml_response = commit(:shipment_accept, save_request(access_request + shipment_accept_request), (options[:test] || false))
         response = parse_shipment_accept_response(xml_response, options)
+        # TODO probably will have one label per package, neh?
+        # And a tracking number per, plus a shipment identifier
+        response.label = Base64.decode64(response.params['shipment_results']['package_results']['label_image']['graphic_image'])
+        response.tracking_number = response.params['shipment_results']['package_results']['tracking_number']
+        response
       end
       
       protected
@@ -210,7 +214,7 @@ module ActiveMerchant
             request << XmlNode.new('RequestAction', 'ShipAccept')
             request << XmlNode.new('RequestOptions', '1')
           end
-          root << XmlNode.new('ShipDigest', confirmation.params['shipment_digest'])
+          root << XmlNode.new('ShipmentDigest', confirmation.params['shipment_digest'])
         end
         xml_request.to_xml
       end
@@ -331,7 +335,6 @@ module ActiveMerchant
       end
 
       def parse_shipment_accept_response(response, options = {})
-        puts response
         xml = REXML::Document.new(response)
         success = response_success?(xml)
         message = response_message(xml)
