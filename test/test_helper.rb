@@ -96,6 +96,7 @@ module ActiveMerchant
                                       :phone => '1-613-580-2400',
                                       :fax => '1-613-580-2495'),
         :beverly_hills => Location.new(
+                                      :name => 'County Clerk',
                                       :country => 'US',
                                       :state => 'CA',
                                       :city => 'Beverly Hills',
@@ -118,6 +119,7 @@ module ActiveMerchant
                                       :zip => '33615',
                                       :address_type => 'commercial'),
         :real_google_as_commercial => Location.new(
+                                      :name => 'Google, Inc.',
                                       :country => 'US',
                                       :city => 'Mountain View',
                                       :state => 'CA',
