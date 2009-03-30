@@ -3,6 +3,8 @@ module ActiveMerchant #:nodoc:
     class Location
       
       attr_reader :options,
+                  :name,
+                  :attention,
                   :country,
                   :postal_code,
                   :province,
@@ -34,6 +36,8 @@ module ActiveMerchant #:nodoc:
         @fax = options[:fax]
         raise ArgumentError.new('address_type must be either "residential" or "commercial"') if options[:address_type] and not (["residential", "commercial", ""]).include?(options[:address_type].to_s)
         @address_type = options[:address_type].nil? ? nil : options[:address_type].to_s
+        @name = options[:name] || nil
+        @attention = options[:attention] || nil
       end
       
       def self.from(object, options={})
@@ -82,6 +86,8 @@ module ActiveMerchant #:nodoc:
       
       def prettyprint
         chunks = []
+        chunks << [@attention] unless @attention.blank
+        chunks << [@name] unless @name.blank
         chunks << [@address1,@address2,@address3].reject {|e| e.blank?}.join("\n")
         chunks << [@city,@province,@postal_code].reject {|e| e.blank?}.join(', ')
         chunks << @country
