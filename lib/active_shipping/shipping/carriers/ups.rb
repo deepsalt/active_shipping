@@ -13,7 +13,8 @@ module ActiveMerchant
       RESOURCES = {
         :rates => 'ups.app/xml/Rate',
         :track => 'ups.app/xml/Track',
-        :shipment_confirm => 'ups.app/xml/ShipConfirm'
+        :shipment_confirm => 'ups.app/xml/ShipConfirm',
+        :shipment_accept => 'ups.app/xml/ShipAccept'
       }
       
       PICKUP_CODES = {
@@ -96,9 +97,16 @@ module ActiveMerchant
         packages = Array(packages)
         access_request = build_access_request
         shipment_confirm_request = build_shipment_confirm_request(origin, destination, packages, options)
-        puts shipment_confirm_request.to_s
-        response = commit(:shipment_confirm, save_request(access_request + shipment_confirm_request), (options[:test] || false))
-        puts response
+        xml_response = commit(:shipment_confirm, save_request(access_request + shipment_confirm_request), (options[:test] || false))
+        response = parse_shipment_confirm_response(xml_response, options)
+      end
+
+      def shipment_accept(confirmation, options = {})
+        shipment_accept_request = build_shipment_accept_request(confirmation)
+        access_request = build_access_request
+        puts shipment_accept_request
+        xml_response = commit(:shipment_accept, save_request(access_request + shipment_accept_request), (options[:test] || false))
+        response = parse_shipment_accept_response(xml_response, options)
       end
       
       protected
@@ -192,6 +200,17 @@ module ActiveMerchant
               shipment << build_package_node(package, origin)
             end
           end
+        end
+        xml_request.to_xml
+      end
+
+      def build_shipment_accept_request(confirmation, options = {})
+        xml_request = XmlNode.new('ShipmentAcceptRequest') do |root|
+          root << XmlNode.new('Request') do |request|
+            request << XmlNode.new('RequestAction', 'ShipAccept')
+            request << XmlNode.new('RequestOptions', '1')
+          end
+          root << XmlNode.new('ShipDigest', confirmation.params['shipment_digest'])
         end
         xml_request.to_xml
       end
@@ -302,6 +321,21 @@ module ActiveMerchant
           end
         end
         RateResponse.new(success, message, Hash.from_xml(response).values.first, :rates => rate_estimates, :xml => response, :request => last_request, :log_xml => options[:log_xml])
+      end
+
+      def parse_shipment_confirm_response(response, options = {})
+        xml = REXML::Document.new(response)
+        success = response_success?(xml)
+        message = response_message(xml)
+        ShipmentConfirmResponse.new(success, message, Hash.from_xml(response).values.first, :xml => response, :request => last_request, :log_xml => options[:log_xml])
+      end
+
+      def parse_shipment_accept_response(response, options = {})
+        puts response
+        xml = REXML::Document.new(response)
+        success = response_success?(xml)
+        message = response_message(xml)
+        ShipmentAcceptResponse.new(success, message, Hash.from_xml(response).values.first, :xml => response, :request => last_request, :log_xml => options[:log_xml])
       end
       
       def parse_tracking_response(response, options={})
