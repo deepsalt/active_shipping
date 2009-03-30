@@ -173,13 +173,25 @@ class UPSTest < Test::Unit::TestCase
     assert prices_of.call(:fake_home_as_residential).first > prices_of.call(:fake_home_as_commercial).first
   end
 
-  def test_shipment_confirm
-    response = nil
+  def test_shipment
+    confirm_response = nil
     assert_nothing_raised do
-      response = @carrier.shipment_confirm(
-        @locations[:ottawa],
+      confirm_response = @carrier.shipment_confirm(
+        @locations[:real_google_as_commercial],
         @locations[:beverly_hills],
-        @packages.values_at(:just_ounces))
+        @packages.values_at(:just_ounces),
+        :service => '03',
+        :test => true
+      )
     end
+    assert confirm_response.success?, confirm_response.message
+    accept_response = nil
+    assert_nothing_raised do
+      accept_response = @carrier.shipment_accept(confirm_response,
+        :test => true
+      )
+    end
+    assert accept_response.success?, accept_response.message
+    assert accept_response.label, accept_response.tracking_number
   end
 end
