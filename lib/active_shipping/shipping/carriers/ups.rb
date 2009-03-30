@@ -96,6 +96,7 @@ module ActiveMerchant
         packages = Array(packages)
         access_request = build_access_request
         shipment_confirm_request = build_shipment_confirm_request(origin, destination, packages, options)
+        puts shipment_confirm_request.to_s
         response = commit(:shipment_confirm, save_request(access_request + shipment_confirm_request), (options[:test] || false))
         puts response
       end
@@ -159,6 +160,7 @@ module ActiveMerchant
         xml_request = XmlNode.new('ShipmentConfirmRequest') do |root|
           root << XmlNode.new('Request') do |request|
             request << XmlNode.new('RequestAction', 'ShipConfirm')
+            request << XmlNode.new('RequestOption', 'validate')
             # TODO TransactionReference
             # TODO   CustomerContext 1..512
 
@@ -174,9 +176,7 @@ module ActiveMerchant
           root << XmlNode.new('Shipment') do |shipment|
             shipment << build_location_node('Shipper', (options[:shipper] || origin), options)
             shipment << build_location_node('ShipTo', destination, options)
-            if options[:shipper] and options[:shipper] != origin
-              shipment << build_location_node('ShipFrom', origin, options)
-            end
+            shipment << build_location_node('ShipFrom', origin, options)
             shipment << XmlNode.new('PaymentInformation') do |payment|
               payment << XmlNode.new('Prepaid') do |prepaid|
                 prepaid << XmlNode.new('BillShipper') do |bill|
@@ -213,6 +213,13 @@ module ActiveMerchant
         #                   * Shipment/(Shipper|ShipTo|ShipFrom)/AttentionName element
         #                   * Shipment/(Shipper|ShipTo|ShipFrom)/TaxIdentificationNumber element
         location_node = XmlNode.new(name) do |location_node|
+          unless location.name.blank?
+            node_name = (name == 'Shipper' ? 'Name' : 'CompanyName')
+            location_node << XmlNode.new(node_name, location.name)
+            if node_name == 'CompanyName' && !location.attention.blank?
+              location_node << XmlNode.new('AttentionName', location.attention)
+            end
+          end
           location_node << XmlNode.new('PhoneNumber', location.phone.gsub(/[^\d]/,'')) unless location.phone.blank?
           location_node << XmlNode.new('FaxNumber', location.fax.gsub(/[^\d]/,'')) unless location.fax.blank?
           
