@@ -163,6 +163,14 @@ module ActiveMerchant
             # TODO   CustomerContext 1..512
 
           end
+          root << XmlNode.new('LabelSpecification') do |label_spec|
+            label_spec << XmlNode.new('LabelPrintMethod') do |label_method|
+              label_method << XmlNode.new('Code', 'GIF')
+            end
+            label_spec << XmlNode.new('LabelImageFormat') do |label_image|
+              label_image << XmlNode.new('Code', 'GIF')
+            end
+          end
           root << XmlNode.new('Shipment') do |shipment|
             shipment << build_location_node('Shipper', (options[:shipper] || origin), options)
             shipment << build_location_node('ShipTo', destination, options)
@@ -171,7 +179,9 @@ module ActiveMerchant
             end
             shipment << XmlNode.new('PaymentInformation') do |payment|
               payment << XmlNode.new('Prepaid') do |prepaid|
-                prepaid << XmlNode.new('BillShipper', options[:origin_account])
+                prepaid << XmlNode.new('BillShipper') do |bill|
+                  bill << XmlNode.new('AccountNumber', options[:origin_account])
+                end
               end
             end
             shipment << XmlNode.new('Service') do |service|
