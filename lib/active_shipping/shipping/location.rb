@@ -86,8 +86,8 @@ module ActiveMerchant #:nodoc:
       
       def prettyprint
         chunks = []
-        chunks << [@attention] unless @attention.blank
-        chunks << [@name] unless @name.blank
+        chunks << [@attention] if !@attention.nil? && !@attention.blank
+        chunks << [@name] if !@name.nil? && !@name.blank
         chunks << [@address1,@address2,@address3].reject {|e| e.blank?}.join("\n")
         chunks << [@city,@province,@postal_code].reject {|e| e.blank?}.join(', ')
         chunks << @country
