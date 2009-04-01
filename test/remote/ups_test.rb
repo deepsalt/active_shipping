@@ -194,4 +194,13 @@ class UPSTest < Test::Unit::TestCase
     assert accept_response.success?, accept_response.message
     assert accept_response.label, accept_response.tracking_number
   end
+
+  def test_buy_shipping_labels
+    shipper = Shipper.new(:name => 'Shipper')
+    origin = @locations[:real_google_as_commercial]
+    destination = @locations[:beverly_hills]
+    packages = [@packages.values_at(:just_ounces), @packages.values_at(:chocolate_stuff)]
+    shipment = @carrier.buy_shipping_labels(shipper, origin, destination, packages)
+    assert_equal shipment.labels.length, packages.length
+  end
 end

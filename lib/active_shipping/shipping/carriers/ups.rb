@@ -92,6 +92,14 @@ module ActiveMerchant
         parse_tracking_response(response, options)
       end
 
+      def buy_shipping_labels(shipper, origin, destination, packages, options = {})
+        payer = options[:payer] || shipper
+        expected_price = options[:expected_price]
+        price_epsilon = options[:price_epsilon] || 0
+        packages = Array(packages)
+        shipment = Shipment.new
+      end
+
       def shipment_confirm(origin, destination, packages, options = {})
         options = @options.merge(options)
         packages = Array(packages)
