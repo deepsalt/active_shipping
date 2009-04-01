@@ -133,6 +133,9 @@ module ActiveMerchant
           end
         end
         puts xml.target!
+        response = commit(:shipment_confirm, save_request(build_access_request + xml.target!), (options[:test] || false))
+        puts response
+        response
       end
 
       def shipment_confirm(origin, destination, packages, options = {})
@@ -354,32 +357,32 @@ module ActiveMerchant
           unless package.description.blank?
             xml.Description package.description
           end
-          xml.Dimensions do
-            xml.UnitOfMeasurement do
-              xml.Code(imperial ? 'IN' : 'CM')
+          axes = [:length, :width, :height]
+          values = axes.map do |axis|
+            if imperial
+              package.inches(axis)
+            else
+              package.cm(axis)
             end
-            axes = [:length, :width, :height]
-            values = axes.map do |axis|
-              if imperial
-                package.inches(axis)
-              else
-                package.cm(axis)
+          end
+          if values.all? {|v| v > 0 }
+            xml.Dimensions do
+              xml.UnitOfMeasurement do
+                xml.Code(imperial ? 'IN' : 'CM')
               end
-            end
-            if values.all? {|v| v > 0 }
               axes.each_with_index do |axis, i|
-                value = values[i]
+                value = (values[i].to_f * 1000).round / 1000.0
                 xml.tag!(axis.to_s.capitalize, [values[i], 0.1].max.to_s)
               end
             end
           end
           xml.PackageWeight do
-            xml.UnitOfMeasureMent do
+            xml.UnitOfMeasurement do
               xml.Code(imperial ? 'LBS' : 'KGS')
-              value = (imperial ? package.lbs : package.kgs)
-              value = (value.to_f * 1000).round / 1000.0 # 3 decimals
-              xml.Weight [value, 0.1].max.to_s
             end
+            value = (imperial ? package.lbs : package.kgs)
+            value = (value.to_f * 1000).round / 1000.0 # 3 decimals
+            xml.Weight [value, 0.1].max.to_s
           end
           # not implemented:  * Shipment/Package/LargePackageIndicator element
           #                   * Shipment/Package/ReferenceNumber element
