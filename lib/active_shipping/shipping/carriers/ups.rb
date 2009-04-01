@@ -97,7 +97,7 @@ module ActiveMerchant
         expected_price = options[:expected_price]
         price_epsilon = options[:price_epsilon] || 0
         reference_number = options[:shipment_number]
-        service = options[:service]
+        service = options[:service] || '03'
         shipment = Shipment.new(:number => reference_number)
         xml = Builder::XmlMarkup.new
         xml.instruct!
