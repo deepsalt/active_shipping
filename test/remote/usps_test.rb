@@ -6,6 +6,22 @@ class USPSTest < Test::Unit::TestCase
     @packages  = TestFixtures.packages
     @locations = TestFixtures.locations
     @carrier   = USPS.new(fixtures(:usps))
+    @locations.update(
+      :john_smith_usps => Location.new(:name => 'John Smith',
+        :company => 'U.S. Postal HeadQuarters',
+        :address2 => "475 L'Enfant Plaza, SW",
+        :city => 'Washington',
+        :state => 'DC',
+        :country => 'US'
+        :zip => '202600004'),
+      :joe_customer_usps => Location.new(:name => 'Joe Customer'
+        :company => 'U.S. Postal Service NCSC',
+        :address1 => 'STE 201',
+        :address2 => '6060 PRIMACY PKWY',
+        :city => 'MEMPHIS',
+        :state => 'TN',
+        :zip => '381195718')
+    )
   end
   
   def test_machinable_rate_discrepancy

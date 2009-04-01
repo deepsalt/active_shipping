@@ -30,12 +30,14 @@ module ActiveMerchant
       API_CODES = {
         :us_rates => 'RateV3',
         :world_rates => 'IntlRate',
-        :test => 'CarrierPickupAvailability'
+        :test => 'CarrierPickupAvailability',
+        :delivery_confirmation => 'DeliveryConfirmationV3'
       }
       USE_SSL = {
         :us_rates => false,
         :world_rates => false,
-        :test => true
+        :test => true,
+        :delivery_confirmation => 'DeliveryConfirmationV3'
       }
       CONTAINERS = {
         :envelope => 'Flat Rate Envelope',
@@ -168,6 +170,26 @@ module ActiveMerchant
       
       def maximum_weight
         Mass.new(70, :pounds)
+      end
+
+      def buy_shipping_labels(shipper, origin, destination, packages, options = {})
+        Array(packages).map do |package|
+          request = XmlNode.new('DeliveryConfirmationV3.0Request', :USERID => @options[:login]) do |request|
+            request << XmlNode.new('Option', '1')
+            request << XmlNode.new('ImageParameters')
+            add_location(request, 'From', origin)
+            add_location(request, 'To', destination)
+            request << XmlNode.new('WeightInOunces', p.ounces)
+            request << XmlNode.new('ServiceType', 'Priority')
+            request << XmlNode.new('POZipCode', origin.zip)
+            request << XmlNode.new('ImageType', 'TIF')
+            request << XmlNode.new('LabelDate', '07/08/2004')
+            request << XmlNode.new('CustomerRefNo', 'A45-3928')
+            request << XmlNode.new('AddressServiceRequested', 'TRUE')
+          end.to_xml
+          response = commit(:delivery_confirmation, request, @options[:test])
+          puts response
+        end
       end
       
       protected
