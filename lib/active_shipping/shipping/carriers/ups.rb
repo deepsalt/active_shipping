@@ -97,6 +97,7 @@ module ActiveMerchant
         expected_price = options[:expected_price]
         price_epsilon = options[:price_epsilon] || 0
         reference_number = options[:shipment_number]
+        service = options[:service]
         shipment = Shipment.new(:number => reference_number)
         xml = Builder::XmlMarkup.new
         xml.instruct!
@@ -115,9 +116,20 @@ module ActiveMerchant
             xml.LabelImageFormat { xml.Code 'GIF' }
           end
           xml.Shipment do
-            #add_location_element(xml, 'Shipper', shipper)
+            add_location_element(xml, 'Shipper', shipper)
             add_location_element(xml, 'ShipTo', destination)
             add_location_element(xml, 'ShipFrom', origin)
+            xml.PaymentInformation do
+              xml.Prepaid do
+                xml.BillShipper do
+                  xml.AccountNumber payer.number
+                end
+              end
+            end
+            xml.Service { xml.Code service }
+            packages.each do |package|
+              add_package_element(xml, package, origin)
+            end
           end
         end
         puts xml.target!
@@ -331,6 +343,48 @@ module ActiveMerchant
             address << XmlNode.new("ResidentialAddressIndicator", true) unless location.commercial? # the default should be that UPS returns residential rates for destinations that it doesn't know about
             # not implemented: Shipment/(Shipper|ShipTo|ShipFrom)/Address/ResidentialAddressIndicator element
           end
+        end
+      end
+
+      def add_package_element(xml, package, origin)
+        raise package.class.to_s unless package.kind_of?(ActiveMerchant::Shipping::Package)
+        imperial = ['US','LR','MM'].include?(origin.country_code(:alpha2))
+        xml.Package do
+          xml.PackagingType { xml.Code '02' }
+          unless package.description.blank?
+            xml.Description package.description
+          end
+          xml.Dimensions do
+            xml.UnitOfMeasurement do
+              xml.Code(imperial ? 'IN' : 'CM')
+            end
+            axes = [:length, :width, :height]
+            values = axes.map do |axis|
+              if imperial
+                package.inches(axis)
+              else
+                package.cm(axis)
+              end
+            end
+            if values.all? {|v| v > 0 }
+              axes.each_with_index do |axis, i|
+                value = values[i]
+                xml.tag!(axis.to_s.capitalize, [values[i], 0.1].max.to_s)
+              end
+            end
+          end
+          xml.PackageWeight do
+            xml.UnitOfMeasureMent do
+              xml.Code(imperial ? 'LBS' : 'KGS')
+              value = (imperial ? package.lbs : package.kgs)
+              value = (value.to_f * 1000).round / 1000.0 # 3 decimals
+              xml.Weight [value, 0.1].max.to_s
+            end
+          end
+          # not implemented:  * Shipment/Package/LargePackageIndicator element
+          #                   * Shipment/Package/ReferenceNumber element
+          #                   * Shipment/Package/PackageServiceOptions element
+          #                   * Shipment/Package/AdditionalHandling element  
         end
       end
 

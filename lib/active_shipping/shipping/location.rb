@@ -2,7 +2,8 @@ module ActiveMerchant #:nodoc:
   module Shipping #:nodoc:
     class Location
       
-      attr_reader :options,
+      attr_accessor :options,
+                  :number,
                   :name,
                   :attention,
                   :country,

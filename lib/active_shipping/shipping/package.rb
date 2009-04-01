@@ -4,7 +4,7 @@ module ActiveMerchant #:nodoc:
       include Quantified
       
       cattr_accessor :default_options
-      attr_reader :options, :value, :currency
+      attr_reader :options, :value, :currency, :description
 
       # Package.new(100, [10, 20, 30], :units => :metric)
       # Package.new(Mass.new(100, :grams), [10, 20, 30].map {|m| Length.new(m, :centimetres)})
