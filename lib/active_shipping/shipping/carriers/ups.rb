@@ -96,8 +96,31 @@ module ActiveMerchant
         payer = options[:payer] || shipper
         expected_price = options[:expected_price]
         price_epsilon = options[:price_epsilon] || 0
-        packages = Array(packages)
-        shipment = Shipment.new
+        reference_number = options[:shipment_number]
+        shipment = Shipment.new(:number => reference_number)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.ShipmentConfirmRequest do
+          xml.Request do
+            xml.RequestAction 'ShipConfirm'
+            xml.RequestOption 'validate'
+            if shipment.number
+              xml.TransactionReference do
+                xml.CustomerContext shipment.number
+              end
+            end
+          end
+          xml.LabelSpecification do
+            xml.LabelPrintMethod { xml.Code 'GIF' }
+            xml.LabelImageFormat { xml.Code 'GIF' }
+          end
+          xml.Shipment do
+            #add_location_element(xml, 'Shipper', shipper)
+            add_location_element(xml, 'ShipTo', destination)
+            add_location_element(xml, 'ShipFrom', origin)
+          end
+        end
+        puts xml.target!
       end
 
       def shipment_confirm(origin, destination, packages, options = {})
@@ -237,8 +260,44 @@ module ActiveMerchant
         end
         xml_request.to_xml
       end
+
+      def add_location_element(xml, name, object)
+        xml.tag!(name) do
+          node_name = (name == 'Shipper' ? 'Name' : 'CompanyName')
+          xml.tag!(node_name, object.name)
+          if node_name == 'CompanyName' && !object.attention.blank?
+            xml.AttentionName object.attention
+          end
+          unless object.phone.blank?
+            xml.PhoneNumber object.phone.gsub(/[^\d]/, '') 
+          end
+          unless object.fax.blank?
+            xml.FaxNumber object.phone.gsub(/[^\d]/, '') 
+          end
+          if name == 'Shipper'
+            xml.ShipperNumber object.number
+          elsif name == 'ShipTo' && object.respond_to?(:number) && !object.number.blank?
+            xml.ShipperAssignedIdentificationNumber object.number
+          end
+          xml.Address do
+            values = [
+              [object.address1, :AddressLine1],
+              [object.address2, :AddressLine2],
+              [object.address3, :AddressLine3],
+              [object.city, :City],
+              [object.province, :StateProvinceCode],
+              [object.postal_code, :PostalCode],
+              [object.country_code(:alpha2), :CountryCode],
+              [!object.commercial?, :ResidentialAddressIndicator]
+            ]
+            values.select {|v, n| v && v != '' }.each do |v, n|
+              xml.tag!(n, v)
+            end
+          end
+        end
+      end
       
-      def build_location_node(name,location,options={})
+      def build_object_node(name,location,options={})
         # not implemented:  * Shipment/Shipper/Name element
         #                   * Shipment/(ShipTo|ShipFrom)/CompanyName element
         #                   * Shipment/(Shipper|ShipTo|ShipFrom)/AttentionName element

@@ -1,9 +1,10 @@
 module ActiveMerchant
   module Shipping
     class Shipment
-      attr :labels
+      attr :number, :labels
 
-      def initialize
+      def initialize(options = {})
+        @number = options[:number]
         @labels = []
       end
     end
