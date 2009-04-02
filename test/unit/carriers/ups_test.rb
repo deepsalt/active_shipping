@@ -106,5 +106,6 @@ class UPSTest < Test::Unit::TestCase
     assert_equal shipment.labels.length, 1
     label = shipment.labels.first
     assert_equal '1Z2220060292353829', label.tracking
+    assert label.image
   end
 end

@@ -134,7 +134,6 @@ module ActiveMerchant
         end
         response = commit(:shipment_confirm, save_request(build_access_request + xml.target!), (options[:test] || false))
         response = parse_shipment_confirm_response(response, options)
-        shipment = Shipment.new
         if response.success?
           xml = Builder::XmlMarkup.new
           xml.instruct!
@@ -145,9 +144,8 @@ module ActiveMerchant
             end
             xml.ShipmentDigest response.params['shipment_digest']
           end
-          response = commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false))
+          parse_shipment(commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false)))
         end
-        shipment
       end
 
       def shipment_confirm(origin, destination, packages, options = {})
@@ -582,9 +580,6 @@ module ActiveMerchant
         Money.new((BigDecimal(value) * 100).to_i, currency)
       end
 
-      def parse_image(element)
-      end
-
       def parse_shipment(accept_response)
         shipment = Shipment.new
         xml = REXML::Document.new(accept_response)
@@ -592,9 +587,9 @@ module ActiveMerchant
         shipment.price = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
         shipment.tracking = shipment_results.elements['ShipmentIdentificationNumber'].text
         shipment_results.elements.each('PackageResults') do |package_results|
-          shipment.labels << label = Label.new(
+          shipment.labels << Label.new(
             :tracking => package_results.text('TrackingNumber'),
-            :image => parse_image(package_results.elements['LabelImage'])
+            :image => Base64.decode64(package_results.text('LabelImage/GraphicImage'))
           )
         end
         shipment
