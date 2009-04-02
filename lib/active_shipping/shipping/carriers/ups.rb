@@ -106,7 +106,7 @@ module ActiveMerchant
         )
         request = build_shipment_confirm_request(shipment)
         response = commit(:shipment_confirm, save_request(build_access_request + request), (options[:test] || false))
-        shipment = parse_shipment_confirm(response)
+        parse_shipment_confirm(shipment, response)
         if shipment[:digest]
           xml = Builder::XmlMarkup.new
           xml.instruct!
@@ -508,16 +508,16 @@ module ActiveMerchant
         Money.new((BigDecimal(value) * 100).to_i, currency)
       end
 
-      def parse_shipment_confirm(response)
+      def parse_shipment_confirm(shipment, response)
         xml = REXML::Document.new(response)
         if response_success?(xml)
           confirm_response = xml.elements['/ShipmentConfirmResponse']
-          price = parse_money(confirm_response.elements['ShipmentCharges/TotalCharges'])
-          digest = confirm_response.text('ShipmentDigest')
-          Shipment.new(:digest => digest, :price => price)
+          shipment.price = parse_money(confirm_response.elements['ShipmentCharges/TotalCharges'])
+          shipment[:digest] = confirm_response.text('ShipmentDigest')
         else
-          Shipment.new(:errors => response_message(xml))
+          shipment.errors = response_message(xml)
         end
+        shipment
       end
 
       def parse_shipment_accept(response)

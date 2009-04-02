@@ -22,6 +22,10 @@ module ActiveMerchant
       def [](name)
         @attributes.try(:[], name)
       end
+
+      def []=(name, value)
+        @attributes.try(:[]=, name, value)
+      end
     end
   end
 end

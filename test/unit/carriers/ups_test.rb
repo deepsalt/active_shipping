@@ -99,8 +99,8 @@ class UPSTest < Test::Unit::TestCase
 
   def test_parse_shipment_confirm
     response = xml_fixture('ups/ShipmentConfirmResponse')
-    shipment = @carrier.send(:parse_shipment_confirm, response)
-    assert shipment
+    shipment = Shipment.new
+    @carrier.send(:parse_shipment_confirm, shipment, response)
     assert_equal Money.new(11848), shipment.price
     assert shipment[:digest]
   end
