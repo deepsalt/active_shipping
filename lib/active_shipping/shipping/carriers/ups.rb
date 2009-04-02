@@ -100,14 +100,14 @@ module ActiveMerchant
           :destination => destination,
           :packages => packages,
           :number => options[:shipment_number],
-          :expected_price => options[:expected_price],
-          :price_epsilon => (options[:price_epsilon] || 0),
           :service => (options[:service] || '03')
         )
+        expected_price = options[:expected_price]
+        price_epsilon = options[:price_epsilon] || Money.new(0)
         request = build_shipment_confirm_request(shipment)
         response = commit(:shipment_confirm, save_request(build_access_request + request), (options[:test] || false))
         parse_shipment_confirm(shipment, response)
-        if shipment[:digest]
+        if shipment.price && (!expected_price || (shipment.price - expected_price) < price_epsilon)
           request = build_shipment_accept_request(shipment)
           response = commit(:shipment_accept, save_request(build_access_request + request), (options[:test] || false))
           shipment = parse_shipment_accept(response)
