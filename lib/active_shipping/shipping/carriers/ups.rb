@@ -133,8 +133,8 @@ module ActiveMerchant
           end
         end
         response = commit(:shipment_confirm, save_request(build_access_request + xml.target!), (options[:test] || false))
-        response = parse_shipment_confirm_response(response, options)
-        if response.success?
+        shipment = parse_shipment_confirm(response)
+        if shipment[:digest]
           xml = Builder::XmlMarkup.new
           xml.instruct!
           xml.ShipmentAcceptRequest do
@@ -142,33 +142,14 @@ module ActiveMerchant
               xml.RequestAction 'ShipAccept'
               xml.RequestOptions '1'
             end
-            xml.ShipmentDigest response.params['shipment_digest']
+            xml.ShipmentDigest shipment[:digest]
           end
-          parse_shipment(commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false)))
+          response = commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false))
+          shipment = parse_shipment_accept(response)
         end
+        shipment
       end
 
-      def shipment_confirm(origin, destination, packages, options = {})
-        options = @options.merge(options)
-        packages = Array(packages)
-        access_request = build_access_request
-        shipment_confirm_request = build_shipment_confirm_request(origin, destination, packages, options)
-        xml_response = commit(:shipment_confirm, save_request(access_request + shipment_confirm_request), (options[:test] || false))
-        response = parse_shipment_confirm_response(xml_response, options)
-      end
-
-      def shipment_accept(confirmation, options = {})
-        shipment_accept_request = build_shipment_accept_request(confirmation)
-        access_request = build_access_request
-        xml_response = commit(:shipment_accept, save_request(access_request + shipment_accept_request), (options[:test] || false))
-        response = parse_shipment_accept_response(xml_response, options)
-        # TODO probably will have one label per package, neh?
-        # And a tracking number per, plus a shipment identifier
-        response.label = Base64.decode64(response.params['shipment_results']['package_results']['label_image']['graphic_image'])
-        response.tracking_number = response.params['shipment_results']['package_results']['tracking_number']
-        response
-      end
-      
       protected
       def build_access_request
         xml_request = XmlNode.new('AccessRequest') do |access_request|
@@ -224,57 +205,6 @@ module ActiveMerchant
         xml_request.to_xml
       end
 
-      def build_shipment_confirm_request(origin, destination, packages, options = {})
-        xml_request = XmlNode.new('ShipmentConfirmRequest') do |root|
-          root << XmlNode.new('Request') do |request|
-            request << XmlNode.new('RequestAction', 'ShipConfirm')
-            request << XmlNode.new('RequestOption', 'validate')
-            # TODO TransactionReference
-            # TODO   CustomerContext 1..512
-
-          end
-          root << XmlNode.new('LabelSpecification') do |label_spec|
-            label_spec << XmlNode.new('LabelPrintMethod') do |label_method|
-              label_method << XmlNode.new('Code', 'GIF')
-            end
-            label_spec << XmlNode.new('LabelImageFormat') do |label_image|
-              label_image << XmlNode.new('Code', 'GIF')
-            end
-          end
-          root << XmlNode.new('Shipment') do |shipment|
-            shipment << build_location_node('Shipper', (options[:shipper] || origin), options)
-            shipment << build_location_node('ShipTo', destination, options)
-            shipment << build_location_node('ShipFrom', origin, options)
-            shipment << XmlNode.new('PaymentInformation') do |payment|
-              payment << XmlNode.new('Prepaid') do |prepaid|
-                prepaid << XmlNode.new('BillShipper') do |bill|
-                  bill << XmlNode.new('AccountNumber', options[:origin_account])
-                end
-              end
-            end
-            shipment << XmlNode.new('Service') do |service|
-              service << XmlNode.new('Code', options[:service])
-              service << XmlNode.new('Description', service_name_for(origin, options[:service]))
-            end
-            packages.each do |package|
-              shipment << build_package_node(package, origin)
-            end
-          end
-        end
-        xml_request.to_xml
-      end
-
-      def build_shipment_accept_request(confirmation, options = {})
-        xml_request = XmlNode.new('ShipmentAcceptRequest') do |root|
-          root << XmlNode.new('Request') do |request|
-            request << XmlNode.new('RequestAction', 'ShipAccept')
-            request << XmlNode.new('RequestOptions', '1')
-          end
-          root << XmlNode.new('ShipmentDigest', confirmation.params['shipment_digest'])
-        end
-        xml_request.to_xml
-      end
-      
       def build_tracking_request(tracking_number, options={})
         xml_request = XmlNode.new('TrackRequest') do |root_node|
           root_node << XmlNode.new('Request') do |request|
@@ -286,42 +216,6 @@ module ActiveMerchant
         xml_request.to_xml
       end
 
-      def add_location_element(xml, name, object)
-        xml.tag!(name) do
-          node_name = (name == 'Shipper' ? 'Name' : 'CompanyName')
-          xml.tag!(node_name, object.name)
-          if node_name == 'CompanyName' && !object.attention.blank?
-            xml.AttentionName object.attention
-          end
-          unless object.phone.blank?
-            xml.PhoneNumber object.phone.gsub(/[^\d]/, '') 
-          end
-          unless object.fax.blank?
-            xml.FaxNumber object.phone.gsub(/[^\d]/, '') 
-          end
-          if name == 'Shipper'
-            xml.ShipperNumber object.number
-          elsif name == 'ShipTo' && object.respond_to?(:number) && !object.number.blank?
-            xml.ShipperAssignedIdentificationNumber object.number
-          end
-          xml.Address do
-            values = [
-              [object.address1, :AddressLine1],
-              [object.address2, :AddressLine2],
-              [object.address3, :AddressLine3],
-              [object.city, :City],
-              [object.province, :StateProvinceCode],
-              [object.postal_code, :PostalCode],
-              [object.country_code(:alpha2), :CountryCode],
-              [!object.commercial?, :ResidentialAddressIndicator]
-            ]
-            values.select {|v, n| v && v != '' }.each do |v, n|
-              xml.tag!(n, v)
-            end
-          end
-        end
-      end
-      
       def build_location_node(name,location,options={})
         # not implemented:  * Shipment/Shipper/Name element
         #                   * Shipment/(ShipTo|ShipFrom)/CompanyName element
@@ -356,48 +250,6 @@ module ActiveMerchant
             address << XmlNode.new("ResidentialAddressIndicator", true) unless location.commercial? # the default should be that UPS returns residential rates for destinations that it doesn't know about
             # not implemented: Shipment/(Shipper|ShipTo|ShipFrom)/Address/ResidentialAddressIndicator element
           end
-        end
-      end
-
-      def add_package_element(xml, package, origin)
-        raise package.class.to_s unless package.kind_of?(ActiveMerchant::Shipping::Package)
-        imperial = ['US','LR','MM'].include?(origin.country_code(:alpha2))
-        xml.Package do
-          xml.PackagingType { xml.Code '02' }
-          unless package.description.blank?
-            xml.Description package.description
-          end
-          axes = [:length, :width, :height]
-          values = axes.map do |axis|
-            if imperial
-              package.inches(axis)
-            else
-              package.cm(axis)
-            end
-          end
-          if values.all? {|v| v > 0 }
-            xml.Dimensions do
-              xml.UnitOfMeasurement do
-                xml.Code(imperial ? 'IN' : 'CM')
-              end
-              axes.each_with_index do |axis, i|
-                value = (values[i].to_f * 1000).round / 1000.0
-                xml.tag!(axis.to_s.capitalize, [values[i], 0.1].max.to_s)
-              end
-            end
-          end
-          xml.PackageWeight do
-            xml.UnitOfMeasurement do
-              xml.Code(imperial ? 'LBS' : 'KGS')
-            end
-            value = (imperial ? package.lbs : package.kgs)
-            value = (value.to_f * 1000).round / 1000.0 # 3 decimals
-            xml.Weight [value, 0.1].max.to_s
-          end
-          # not implemented:  * Shipment/Package/LargePackageIndicator element
-          #                   * Shipment/Package/ReferenceNumber element
-          #                   * Shipment/Package/PackageServiceOptions element
-          #                   * Shipment/Package/AdditionalHandling element  
         end
       end
 
@@ -461,20 +313,6 @@ module ActiveMerchant
         RateResponse.new(success, message, Hash.from_xml(response).values.first, :rates => rate_estimates, :xml => response, :request => last_request, :log_xml => options[:log_xml])
       end
 
-      def parse_shipment_confirm_response(response, options = {})
-        xml = REXML::Document.new(response)
-        success = response_success?(xml)
-        message = response_message(xml)
-        ShipmentConfirmResponse.new(success, message, Hash.from_xml(response).values.first, :xml => response, :request => last_request, :log_xml => options[:log_xml])
-      end
-
-      def parse_shipment_accept_response(response, options = {})
-        xml = REXML::Document.new(response)
-        success = response_success?(xml)
-        message = response_message(xml)
-        ShipmentAcceptResponse.new(success, message, Hash.from_xml(response).values.first, :xml => response, :request => last_request, :log_xml => options[:log_xml])
-      end
-      
       def parse_tracking_response(response, options={})
         xml = REXML::Document.new(response)
         success = response_success?(xml)
@@ -574,15 +412,107 @@ module ActiveMerchant
         name ||= DEFAULT_SERVICES[code]
       end
 
+      ### NEW
+
+      def add_package_element(xml, package, origin)
+        raise package.class.to_s unless package.kind_of?(ActiveMerchant::Shipping::Package)
+        imperial = ['US','LR','MM'].include?(origin.country_code(:alpha2))
+        xml.Package do
+          xml.PackagingType { xml.Code '02' }
+          unless package.description.blank?
+            xml.Description package.description
+          end
+          axes = [:length, :width, :height]
+          values = axes.map do |axis|
+            if imperial
+              package.inches(axis)
+            else
+              package.cm(axis)
+            end
+          end
+          if values.all? {|v| v > 0 }
+            xml.Dimensions do
+              xml.UnitOfMeasurement do
+                xml.Code(imperial ? 'IN' : 'CM')
+              end
+              axes.each_with_index do |axis, i|
+                value = (values[i].to_f * 1000).round / 1000.0
+                xml.tag!(axis.to_s.capitalize, [values[i], 0.1].max.to_s)
+              end
+            end
+          end
+          xml.PackageWeight do
+            xml.UnitOfMeasurement do
+              xml.Code(imperial ? 'LBS' : 'KGS')
+            end
+            value = (imperial ? package.lbs : package.kgs)
+            value = (value.to_f * 1000).round / 1000.0 # 3 decimals
+            xml.Weight [value, 0.1].max.to_s
+          end
+          # not implemented:  * Shipment/Package/LargePackageIndicator element
+          #                   * Shipment/Package/ReferenceNumber element
+          #                   * Shipment/Package/PackageServiceOptions element
+          #                   * Shipment/Package/AdditionalHandling element  
+        end
+      end
+
+      def add_location_element(xml, name, object)
+        xml.tag!(name) do
+          node_name = (name == 'Shipper' ? 'Name' : 'CompanyName')
+          xml.tag!(node_name, object.name)
+          if node_name == 'CompanyName' && !object.attention.blank?
+            xml.AttentionName object.attention
+          end
+          unless object.phone.blank?
+            xml.PhoneNumber object.phone.gsub(/[^\d]/, '') 
+          end
+          unless object.fax.blank?
+            xml.FaxNumber object.phone.gsub(/[^\d]/, '') 
+          end
+          if name == 'Shipper'
+            xml.ShipperNumber object.number
+          elsif name == 'ShipTo' && object.respond_to?(:number) && !object.number.blank?
+            xml.ShipperAssignedIdentificationNumber object.number
+          end
+          xml.Address do
+            values = [
+              [object.address1, :AddressLine1],
+              [object.address2, :AddressLine2],
+              [object.address3, :AddressLine3],
+              [object.city, :City],
+              [object.province, :StateProvinceCode],
+              [object.postal_code, :PostalCode],
+              [object.country_code(:alpha2), :CountryCode],
+              [!object.commercial?, :ResidentialAddressIndicator]
+            ]
+            values.select {|v, n| v && v != '' }.each do |v, n|
+              xml.tag!(n, v)
+            end
+          end
+        end
+      end
+      
       def parse_money(element)
         value = element.elements['MonetaryValue'].text
         currency = element.elements['CurrencyCode'].text
         Money.new((BigDecimal(value) * 100).to_i, currency)
       end
 
-      def parse_shipment(accept_response)
+      def parse_shipment_confirm(response)
+        xml = REXML::Document.new(response)
+        if response_success?(xml)
+          confirm_response = xml.elements['/ShipmentConfirmResponse']
+          price = parse_money(confirm_response.elements['ShipmentCharges/TotalCharges'])
+          digest = confirm_response.text('ShipmentDigest')
+          Shipment.new(:digest => digest, :price => price)
+        else
+          Shipment.new(:errors => response_message(xml))
+        end
+      end
+
+      def parse_shipment_accept(response)
         shipment = Shipment.new
-        xml = REXML::Document.new(accept_response)
+        xml = REXML::Document.new(response)
         shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
         shipment.price = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
         shipment.tracking = shipment_results.elements['ShipmentIdentificationNumber'].text

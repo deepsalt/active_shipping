@@ -1,14 +1,20 @@
 module ActiveMerchant
   module Shipping
     class Shipment
-      attr_accessor :number, :price, :tracking
+      attr_accessor :number, :price, :tracking, :errors
       attr_reader :labels
 
-      def initialize(options = {})
-        @number = options[:number]
-        @price = options[:price]
-        @tracking = options[:tracking]
+      def initialize(attributes = {})
+        @number = attributes[:number]
+        @price = attributes[:price]
+        @tracking = attributes[:tracking]
+        @errors = attributes[:errors]
+        @attributes = attributes
         @labels = []
+      end
+
+      def [](name)
+        @attributes.try(:[], name)
       end
     end
   end
