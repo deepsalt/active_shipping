@@ -328,7 +328,7 @@ module ActiveMerchant
         end
       end
       
-      def build_object_node(name,location,options={})
+      def build_location_node(name,location,options={})
         # not implemented:  * Shipment/Shipper/Name element
         #                   * Shipment/(ShipTo|ShipFrom)/CompanyName element
         #                   * Shipment/(Shipper|ShipTo|ShipFrom)/AttentionName element
