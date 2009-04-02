@@ -146,10 +146,6 @@ module ActiveMerchant
             xml.ShipmentDigest response.params['shipment_digest']
           end
           response = commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false))
-          xml = REXML::Document.new(response)
-          shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
-          total_charges = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
-          shipment
         end
         shipment
       end
@@ -585,7 +581,24 @@ module ActiveMerchant
         currency = element.elements['CurrencyCode'].text
         Money.new((BigDecimal(value) * 100).to_i, currency)
       end
-      
+
+      def parse_image(element)
+      end
+
+      def parse_shipment(accept_response)
+        shipment = Shipment.new
+        xml = REXML::Document.new(accept_response)
+        shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
+        shipment.price = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
+        shipment.tracking = shipment_results.elements['ShipmentIdentificationNumber'].text
+        shipment_results.elements.each('PackageResults') do |package_results|
+          shipment.labels << label = Label.new(
+            :tracking => package_results.text('TrackingNumber'),
+            :image => parse_image(package_results.elements['LabelImage'])
+          )
+        end
+        shipment
+      end
     end
   end
 end

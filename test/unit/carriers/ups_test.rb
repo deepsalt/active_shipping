@@ -96,4 +96,15 @@ class UPSTest < Test::Unit::TestCase
     element = REXML::Document.new('<Charge><MonetaryValue>5.23</MonetaryValue><CurrencyCode>USD</CurrencyCode></Charge>').root
     assert_equal Money.new(523, 'USD'), @carrier.send(:parse_money, element)
   end
+
+  def test_parse_shipment
+    response = xml_fixture('ups/ShipmentAcceptResponse')
+    shipment = @carrier.send(:parse_shipment, response)
+    assert shipment
+    assert_equal Money.new(11848), shipment.price
+    assert_equal '1Z2220060292353829', shipment.tracking
+    assert_equal shipment.labels.length, 1
+    label = shipment.labels.first
+    assert_equal '1Z2220060292353829', label.tracking
+  end
 end
