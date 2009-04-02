@@ -108,16 +108,8 @@ module ActiveMerchant
         response = commit(:shipment_confirm, save_request(build_access_request + request), (options[:test] || false))
         parse_shipment_confirm(shipment, response)
         if shipment[:digest]
-          xml = Builder::XmlMarkup.new
-          xml.instruct!
-          xml.ShipmentAcceptRequest do
-            xml.Request do
-              xml.RequestAction 'ShipAccept'
-              xml.RequestOptions '1'
-            end
-            xml.ShipmentDigest shipment[:digest]
-          end
-          response = commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false))
+          request = build_shipment_accept_request(shipment)
+          response = commit(:shipment_accept, save_request(build_access_request + request), (options[:test] || false))
           shipment = parse_shipment_accept(response)
         end
         shipment
@@ -420,6 +412,23 @@ module ActiveMerchant
               add_package_element(xml, package, shipment.origin)
             end
           end
+        end
+        xml.target!
+      end
+
+      def build_shipment_accept_request(shipment)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.ShipmentAcceptRequest do
+          xml.Request do
+            xml.RequestAction 'ShipAccept'
+            if shipment.number
+              xml.TransactionReference do
+                xml.CustomerContext shipment.number
+              end
+            end
+          end
+          xml.ShipmentDigest shipment[:digest]
         end
         xml.target!
       end
