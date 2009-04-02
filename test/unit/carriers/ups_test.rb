@@ -91,4 +91,9 @@ class UPSTest < Test::Unit::TestCase
     assert Package.new((150 * 16) + 0.01, [5,5,5], :units => :imperial).mass > @carrier.maximum_weight
     assert Package.new((150 * 16) - 0.01, [5,5,5], :units => :imperial).mass < @carrier.maximum_weight
   end
+
+  def test_parse_money
+    element = REXML::Document.new('<Charge><MonetaryValue>5.23</MonetaryValue><CurrencyCode>USD</CurrencyCode></Charge>').root
+    assert_equal Money.new(523, 'USD'), @carrier.send(:parse_money, element)
+  end
 end
