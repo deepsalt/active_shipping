@@ -110,7 +110,7 @@ module ActiveMerchant
         if shipment.price && (!expected_price || (shipment.price - expected_price) < price_epsilon)
           request = build_shipment_accept_request(shipment)
           response = commit(:shipment_accept, save_request(build_access_request + request), (options[:test] || false))
-          shipment = parse_shipment_accept(response)
+          parse_shipment_accept(shipment, response)
         end
         shipment
       end
@@ -529,12 +529,12 @@ module ActiveMerchant
         shipment
       end
 
-      def parse_shipment_accept(response)
-        shipment = Shipment.new
+      def parse_shipment_accept(shipment, response)
         xml = REXML::Document.new(response)
         shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
         shipment.price = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
         shipment.tracking = shipment_results.elements['ShipmentIdentificationNumber'].text
+        shipment.labels = []
         shipment_results.elements.each('PackageResults') do |package_results|
           shipment.labels << Label.new(
             :tracking => package_results.text('TrackingNumber'),

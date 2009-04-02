@@ -92,6 +92,21 @@ class UPSTest < Test::Unit::TestCase
     assert Package.new((150 * 16) - 0.01, [5,5,5], :units => :imperial).mass < @carrier.maximum_weight
   end
 
+  def test_buy_shipping_labels
+    @carrier.expects(:build_access_request).times(2).returns('')
+    @carrier.expects(:commit).times(2)
+    @carrier.expects(:save_request).times(2)
+    @carrier.expects(:build_shipment_confirm_request).returns('')
+    def @carrier.parse_shipment_confirm(shipment, response)
+      shipment.price = Money.new(1)
+      shipment
+    end
+    @carrier.expects(:build_shipment_accept_request).returns('')
+    @carrier.expects(:parse_shipment_accept)
+    shipment = @carrier.buy_shipping_labels(nil, nil, nil, nil)
+    assert shipment.kind_of?(Shipment)
+  end
+
   def test_parse_money
     element = REXML::Document.new('<Charge><MonetaryValue>5.23</MonetaryValue><CurrencyCode>USD</CurrencyCode></Charge>').root
     assert_equal Money.new(523, 'USD'), @carrier.send(:parse_money, element)
@@ -107,8 +122,8 @@ class UPSTest < Test::Unit::TestCase
 
   def test_parse_shipment_accept
     response = xml_fixture('ups/ShipmentAcceptResponse')
-    shipment = @carrier.send(:parse_shipment_accept, response)
-    assert shipment
+    shipment = Shipment.new
+    @carrier.send(:parse_shipment_accept, shipment, response)
     assert_equal Money.new(11848), shipment.price
     assert_equal '1Z2220060292353829', shipment.tracking
     assert_equal shipment.labels.length, 1
