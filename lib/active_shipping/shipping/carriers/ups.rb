@@ -93,46 +93,19 @@ module ActiveMerchant
       end
 
       def buy_shipping_labels(shipper, origin, destination, packages, options = {})
-        payer = options[:payer] || shipper
-        expected_price = options[:expected_price]
-        price_epsilon = options[:price_epsilon] || 0
-        reference_number = options[:shipment_number]
-        service = options[:service] || '03'
-        shipment = Shipment.new(:number => reference_number)
-        xml = Builder::XmlMarkup.new
-        xml.instruct!
-        xml.ShipmentConfirmRequest do
-          xml.Request do
-            xml.RequestAction 'ShipConfirm'
-            xml.RequestOption 'validate'
-            if shipment.number
-              xml.TransactionReference do
-                xml.CustomerContext shipment.number
-              end
-            end
-          end
-          xml.LabelSpecification do
-            xml.LabelPrintMethod { xml.Code 'GIF' }
-            xml.LabelImageFormat { xml.Code 'GIF' }
-          end
-          xml.Shipment do
-            add_location_element(xml, 'Shipper', shipper)
-            add_location_element(xml, 'ShipTo', destination)
-            add_location_element(xml, 'ShipFrom', origin)
-            xml.PaymentInformation do
-              xml.Prepaid do
-                xml.BillShipper do
-                  xml.AccountNumber payer.number
-                end
-              end
-            end
-            xml.Service { xml.Code service }
-            packages.each do |package|
-              add_package_element(xml, package, origin)
-            end
-          end
-        end
-        response = commit(:shipment_confirm, save_request(build_access_request + xml.target!), (options[:test] || false))
+        shipment = Shipment.new(
+          :shipper => shipper,
+          :payer => (options[:payer] || shipper),
+          :origin => origin,
+          :destination => destination,
+          :packages => packages,
+          :number => options[:shipment_number],
+          :expected_price => options[:expected_price],
+          :price_epsilon => (options[:price_epsilon] || 0),
+          :service => (options[:service] || '03')
+        )
+        request = build_shipment_confirm_request(shipment)
+        response = commit(:shipment_confirm, save_request(build_access_request + request), (options[:test] || false))
         shipment = parse_shipment_confirm(response)
         if shipment[:digest]
           xml = Builder::XmlMarkup.new
@@ -413,6 +386,43 @@ module ActiveMerchant
       end
 
       ### NEW
+
+      def build_shipment_confirm_request(shipment)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.ShipmentConfirmRequest do
+          xml.Request do
+            xml.RequestAction 'ShipConfirm'
+            xml.RequestOption 'validate'
+            if shipment.number
+              xml.TransactionReference do
+                xml.CustomerContext shipment.number
+              end
+            end
+          end
+          xml.LabelSpecification do
+            xml.LabelPrintMethod { xml.Code 'GIF' }
+            xml.LabelImageFormat { xml.Code 'GIF' }
+          end
+          xml.Shipment do
+            add_location_element(xml, 'Shipper', shipment.shipper)
+            add_location_element(xml, 'ShipTo', shipment.destination)
+            add_location_element(xml, 'ShipFrom', shipment.origin)
+            xml.PaymentInformation do
+              xml.Prepaid do
+                xml.BillShipper do
+                  xml.AccountNumber shipment.payer.number
+                end
+              end
+            end
+            xml.Service { xml.Code shipment.service }
+            shipment.packages.each do |package|
+              add_package_element(xml, package, shipment.origin)
+            end
+          end
+        end
+        xml.target!
+      end
 
       def add_package_element(xml, package, origin)
         raise package.class.to_s unless package.kind_of?(ActiveMerchant::Shipping::Package)
