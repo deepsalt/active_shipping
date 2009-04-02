@@ -132,10 +132,26 @@ module ActiveMerchant
             end
           end
         end
-        puts xml.target!
         response = commit(:shipment_confirm, save_request(build_access_request + xml.target!), (options[:test] || false))
-        puts response
-        response
+        response = parse_shipment_confirm_response(response, options)
+        shipment = Shipment.new
+        if response.success?
+          xml = Builder::XmlMarkup.new
+          xml.instruct!
+          xml.ShipmentAcceptRequest do
+            xml.Request do
+              xml.RequestAction 'ShipAccept'
+              xml.RequestOptions '1'
+            end
+            xml.ShipmentDigest response.params['shipment_digest']
+          end
+          response = commit(:shipment_accept, save_request(build_access_request + xml.target!), (options[:test] || false))
+          xml = REXML::Document.new(response)
+          shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
+          total_charges = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
+          shipment
+        end
+        shipment
       end
 
       def shipment_confirm(origin, destination, packages, options = {})
@@ -562,6 +578,12 @@ module ActiveMerchant
         
         name ||= OTHER_NON_US_ORIGIN_SERVICES[code] unless name == 'US'
         name ||= DEFAULT_SERVICES[code]
+      end
+
+      def parse_money(element)
+        value = element.elements['MonetaryValue'].text
+        currency = element.elements['CurrencyCode'].text
+        Money.new((BigDecimal(value) * 100).to_i, currency)
       end
       
     end

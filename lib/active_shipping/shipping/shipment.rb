@@ -1,7 +1,8 @@
 module ActiveMerchant
   module Shipping
     class Shipment
-      attr :number, :labels
+      attr_accessor :number
+      attr_reader :labels
 
       def initialize(options = {})
         @number = options[:number]
