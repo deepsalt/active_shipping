@@ -10,6 +10,11 @@ module ActiveMerchant
         packages = Array(packages)
       end
 
+      def find_tracking_info(tracking, options = {})
+        TrackingResponse.new(true, nil, nil, :tracking_number => tracking,
+          :shipment_events => [ShipmentEvent.new('Delivered', Time.now, nil)])
+      end
+
       def buy_shipping_labels(shipper, origin, destination, packages, options = {})
         tracking = Array.new(9) { rand(9) }.join
         Shipment.new(
