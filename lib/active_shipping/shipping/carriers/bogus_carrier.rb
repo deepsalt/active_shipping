@@ -8,10 +8,13 @@ module ActiveMerchant
         origin = Location.from(origin)
         destination = Location.from(destination)
         packages = Array(packages)
+        RateResponse.new(true, nil, {}, 
+          :rates => [RateEstimate.new(origin, destination, @@name, 'Carrier Pigeon', :service_code => '01', :total_price => '5.23', :currency => 'USD')]
+        )
       end
 
       def find_tracking_info(tracking, options = {})
-        TrackingResponse.new(true, nil, nil, :tracking_number => tracking,
+        TrackingResponse.new(true, nil, {}, :tracking_number => tracking,
           :shipment_events => [ShipmentEvent.new('Delivered', Time.now, nil)])
       end
 
