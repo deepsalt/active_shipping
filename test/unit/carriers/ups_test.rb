@@ -124,6 +124,17 @@ class UPSTest < Test::Unit::TestCase
     end
   end
 
+  def test_build_shipment_accept_request
+    shipment = Shipment.new(
+      :name => '123',
+      :digest => 'foobar'
+    )
+    request = @carrier.send(:build_shipment_accept_request, shipment)
+    assert_nothing_raised do
+      REXML::Document.new(request)
+    end
+  end
+
   def test_parse_money
     element = REXML::Document.new('<Charge><MonetaryValue>5.23</MonetaryValue><CurrencyCode>USD</CurrencyCode></Charge>').root
     assert_equal Money.new(523, 'USD'), @carrier.send(:parse_money, element)
