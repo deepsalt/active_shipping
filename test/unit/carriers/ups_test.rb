@@ -159,4 +159,11 @@ class UPSTest < Test::Unit::TestCase
     assert_equal '1Z2220060292353829', label.tracking
     assert label.image
   end
+
+  def test_parse_void_shipment
+    response = xml_fixture('ups/VoidShipmentResponse')
+    shipment = Shipment.new
+    @carrier.send(:parse_void_shipment, shipment, response)
+    assert shipment.errors.empty?
+  end
 end

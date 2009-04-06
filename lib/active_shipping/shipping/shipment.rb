@@ -8,7 +8,7 @@ module ActiveMerchant
         @number = attributes[:number]
         @price = attributes[:price]
         @tracking = attributes[:tracking]
-        @errors = attributes[:errors]
+        @errors = attributes[:errors] || []
         @shipper = attributes[:shipper]
         @payer = attributes[:payer]
         @origin = attributes[:origin]

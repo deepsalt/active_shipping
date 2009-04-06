@@ -115,6 +115,13 @@ module ActiveMerchant
         shipment
       end
 
+      def cancel_shipment(shipment, options = {})
+        request = build_void_shipment_request(shipment)
+        response = commit(:void_shipment, save_request(build_access_request + request), (options[:test] || false))
+        parse_void_shipment(shipment, response)
+        shipment
+      end
+
       protected
       def build_access_request
         xml_request = XmlNode.new('AccessRequest') do |access_request|
@@ -386,11 +393,7 @@ module ActiveMerchant
           xml.Request do
             xml.RequestAction 'ShipConfirm'
             xml.RequestOption 'validate'
-            if shipment.number
-              xml.TransactionReference do
-                xml.CustomerContext shipment.number
-              end
-            end
+            add_reference_element(xml, shipment)
           end
           xml.LabelSpecification do
             xml.LabelPrintMethod { xml.Code 'GIF' }
@@ -422,15 +425,32 @@ module ActiveMerchant
         xml.ShipmentAcceptRequest do
           xml.Request do
             xml.RequestAction 'ShipAccept'
-            if shipment.number
-              xml.TransactionReference do
-                xml.CustomerContext shipment.number
-              end
-            end
+            add_reference_element(xml, shipment)
           end
           xml.ShipmentDigest shipment[:digest]
         end
         xml.target!
+      end
+
+      def build_void_shipment_request(shipment)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.VoidShimentRequest do
+          xml.Request do
+            xml.RequestAction '1'
+          end
+          add_reference_element(xml, shipment)
+        end
+        xml.ShipmentIdentificationNumber shipment.tracking
+        xml.target!
+      end
+
+      def add_reference_element(xml, shipment)
+        if shipment.number
+          xml.TransactionReference do
+            xml.CustomerContext shipment.number
+          end
+        end
       end
 
       def add_package_element(xml, package, origin)
@@ -531,15 +551,29 @@ module ActiveMerchant
 
       def parse_shipment_accept(shipment, response)
         xml = REXML::Document.new(response)
-        shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
-        shipment.price = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
-        shipment.tracking = shipment_results.elements['ShipmentIdentificationNumber'].text
-        shipment.labels = []
-        shipment_results.elements.each('PackageResults') do |package_results|
-          shipment.labels << Label.new(
-            :tracking => package_results.text('TrackingNumber'),
-            :image => Base64.decode64(package_results.text('LabelImage/GraphicImage'))
-          )
+        if response_success?(xml)
+          shipment_results = xml.elements['/ShipmentAcceptResponse/ShipmentResults']
+          shipment.price = parse_money(shipment_results.elements['ShipmentCharges/TotalCharges'])
+          shipment.tracking = shipment_results.elements['ShipmentIdentificationNumber'].text
+          shipment.labels = []
+          shipment_results.elements.each('PackageResults') do |package_results|
+            shipment.labels << Label.new(
+              :tracking => package_results.text('TrackingNumber'),
+              :image => Base64.decode64(package_results.text('LabelImage/GraphicImage'))
+            )
+          end
+        else
+          shipment.errors = response_message(xml)
+        end
+        shipment
+      end
+
+      def parse_void_shipment(shipment, response)
+        xml = REXML::Document.new(response)
+        if response_success?(xml)
+          shipment.tracking = nil
+        else
+          shipment.errors = response_message(xml)
         end
         shipment
       end
