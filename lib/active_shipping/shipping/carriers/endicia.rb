@@ -7,6 +7,10 @@ module ActiveMerchant
 
       TEST_URL = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
 
+      RESOURCES = {
+        :get_postage_label, ['GetPostageLabelXML', 'labelRequestXML']
+      }
+
       def buy_shipping_labels(shipper, origin, destination, packages, options = {})
         shipment = Shipment.new(
           :shipper => shipper,
@@ -19,7 +23,8 @@ module ActiveMerchant
         )
         packages.each do |package|
           request = build_label_request(shipment, package)
-          puts request
+          response = commit(:get_postage_label, request, true)
+          puts response
         end
       end
 
@@ -81,6 +86,11 @@ module ActiveMerchant
         package.tracking = label_response.text('TrackingNumber')
         package.cost = Money(label_response.text('FinalPostage').to_f * 100)
         package
+      end
+
+      def commit(action, request, test = false)
+        resource = RESOURCES[action]
+        ssl_post("#{test ? TEST_URL : LIVE_URL}/#{resource[0]}", resource[1] + '=' + request)
       end
 
       def get_postage_label
