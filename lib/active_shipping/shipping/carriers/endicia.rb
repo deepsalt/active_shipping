@@ -1,7 +1,27 @@
 module ActiveMerchant
   module Shipping
     class Endicia < Carrier
-      TEST_SERVER = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
+      cattr_accessor :default_options
+      cattr_reader :name
+      @@name = "Endicia"
+
+      TEST_URL = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
+
+      def buy_shipping_labels(shipper, origin, destination, packages, options = {})
+        shipment = Shipment.new(
+          :shipper => shipper,
+          :payer => (options[:payer] || shipper),
+          :origin => origin,
+          :destination => destination,
+          :packages => packages,
+          :number => options[:shipment_number],
+          :service => (options[:service] || 'MediaMail')
+        )
+        packages.each do |package|
+          request = build_label_request(shipment, package)
+          puts request
+        end
+      end
 
       private
 
@@ -48,6 +68,19 @@ module ActiveMerchant
         values.select {|v, n| !v.blank?}.each do |v, n|
           xml.tag!(name + n, v)
         end
+      end
+
+      def parse_label_response(package, response)
+        xml = REXML::Document.new(response)
+        label_response = xml.elements['/LabelRequestResponse']
+        if label_response.text('Status') != '1'
+          package.errors << 'Something went wrong'
+          return false
+        end
+        package.label = Base64.decode64(label_response.text('Base64LabelImage'))
+        package.tracking = label_response.text('TrackingNumber')
+        package.cost = Money(label_response.text('FinalPostage').to_f * 100)
+        package
       end
 
       def get_postage_label

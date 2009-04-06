@@ -35,7 +35,7 @@ namespace :test do
   end
 
   namespace :remote do
-    ['ups', 'usps', 'fedex', 'shipwire'].each do |name|
+    ['ups', 'usps', 'fedex', 'shipwire', 'endicia'].each do |name|
       Rake::TestTask.new(name.to_sym) do |t|
         t.pattern = "test/remote/#{name}_test.rb"
         t.ruby_opts << '-rubygems'
