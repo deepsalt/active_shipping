@@ -5,13 +5,20 @@ class EndiciaTest < Test::Unit::TestCase
     @packages  = TestFixtures.packages
     @locations = TestFixtures.locations
     @carrier = Endicia.new(:partner_id => '123456')
+    @shipper = @locations[:real_google_as_commercial].dup
+    @shipper.number = '123456'
+    @shipper.passphrase = 'foobar'
   end
 
   def test_build_change_passphrase_request
-    shipper = @locations[:real_google_as_commercial]
-    shipper.number = '123456'
-    shipper.passphrase = 'foobar'
-    request = @carrier.send(:build_change_passphrase_request, shipper)
+    request = @carrier.send(:build_change_passphrase_request, @shipper, 'xyzzy')
+    assert_nothing_raised do
+      REXML::Document.new(request)
+    end
+  end
+
+  def test_build_recredit_request
+    request = @carrier.send(:build_recredit_request, @shipper, Money.new(5000))
     assert_nothing_raised do
       REXML::Document.new(request)
     end

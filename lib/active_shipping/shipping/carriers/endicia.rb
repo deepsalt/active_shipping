@@ -45,6 +45,10 @@ module ActiveMerchant
         shipper
       end
 
+      def buy_postage(shipper, amount)
+        request = build_postage_request(shipper, amount)
+      end
+
       private
 
       def requirements
@@ -132,15 +136,24 @@ module ActiveMerchant
         end
         shipper
       end
+
+      def build_recredit_request(shipper, amount)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.RecreditRequest do
+          xml.RequesterID @options[:partner_id]
+          xml.RequestID self.class.uuid
+          xml.CertifiedIntermediary do
+            xml.AccountID shipper.number
+            xml.PassPhrase shipper.passphrase
+          end
+          xml.RecreditAmount amount.to_s
+        end
+      end
+
       def commit(action, request, test = false)
         resource = RESOURCES[action]
         ssl_post("#{test ? TEST_URL : LIVE_URL}/#{resource[0]}", resource[1] + '=' + request)
-      end
-
-      def buy_postage
-      end
-
-      def change_pass_phrase
       end
 
       def calculate_postage_rate
