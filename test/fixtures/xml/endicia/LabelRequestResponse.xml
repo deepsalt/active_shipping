@@ -1,0 +1,33 @@
+<LabelRequestResponse> 
+  <Status>0</Status>  
+  <Base64LabelImage></Base64LabelImage>  
+  <PIC>9122123456789123456783</PIC>  
+  <TrackingNumber>9122123456789123456783</TrackingNumber>  
+  <FinalPostage>6.55</FinalPostage>  
+  <TransactionID>789</TransactionID> 
+  <TransactionDateTime>20080509060019</TransactionDateTime> 
+  <PostmarkDate>20080508</PostmarkDate>  
+  <PostageBalance>123.450</PostageBalance> 
+  <PostagePrice TotalAmount="6.55"> 
+   <Postage TotalAmount="4.75"> 
+    <MailService>Priority Mail</MailService> 
+    <Zone>4</Zone> 
+    <IntraBMC>FALSE</IntraBMC> 
+    <Pricing>CommercialBase</Pricing> 
+   </Postage> 
+   <Fees TotalAmount="1.8"> 
+    <CertificateOfMailing>0</CertificateOfMailing> 
+    <CertifiedMail>0</CertifiedMail> 
+    <CollectOnDelivery>0</CollectOnDelivery> 
+    <DeliveryConfirmation>0</DeliveryConfirmation> 
+    <ElectronicReturnReceipt>0</ElectronicReturnReceipt> 
+    <InsuredMail>0</InsuredMail> 
+    <RegisteredMail>0</RegisteredMail> 
+    <RestrictedDelivery>0</RestrictedDelivery> 
+    <ReturnReceipt>0</ReturnReceipt> 
+    <ReturnReceiptForMerchandise>0</ReturnReceiptForMerchandise> 
+    <SignatureConfirmation>1.8</SignatureConfirmation> 
+    <SpecialHandling>0</SpecialHandling> 
+   </Fees> 
+  </PostagePrice> 
+</LabelRequestResponse> 
