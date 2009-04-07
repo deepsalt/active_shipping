@@ -11,6 +11,7 @@ class EndiciaTest < Test::Unit::TestCase
     origin = @locations[:real_google_as_commercial]
     shipper = origin.dup
     shipper.number = '123456'
+    shipper.passphrase = 'abcdef'
     shipper.attention = 'foobar'
     destination = @locations[:beverly_hills]
     packages = [@packages[:just_ounces], @packages[:chocolate_stuff]]

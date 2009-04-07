@@ -4,12 +4,17 @@ module ActiveMerchant
       cattr_accessor :default_options
       cattr_reader :name
       @@name = "Endicia"
+      @@uuid = UUID.new
 
       TEST_URL = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
 
       RESOURCES = {
         :get_postage_label, ['GetPostageLabelXML', 'labelRequestXML']
       }
+
+      def self.uuid
+        @@uuid.generate
+      end
 
       def buy_shipping_labels(shipper, origin, destination, packages, options = {})
         shipment = Shipment.new(
@@ -33,7 +38,7 @@ module ActiveMerchant
       private
 
       def requirements
-        [:partner_id, :passphrase]
+        [:partner_id]
       end
 
       def build_label_request(shipment, package)
@@ -42,7 +47,7 @@ module ActiveMerchant
         xml.LabelRequest('Test' => 'YES') do
           xml.RequesterID @options[:partner_id]
           xml.AccountID shipment.shipper.number
-          xml.PassPhrase @options[:passphrase]
+          xml.PassPhrase shipment.shipper.passphrase
           xml.MailClass shipment.service
           xml.WeightOz package.ounces
           xml.MailpieceShape 'Parcel'
@@ -94,12 +99,25 @@ module ActiveMerchant
         package
       end
 
+      def build_change_passphrase_request(shipper, passphrase = nil)
+        passphrase ||= ActiveSupport::SecureRandom.base64(64)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.ChangePassPhraseRequest do
+          xml.RequesterID @options[:partner_id]
+          xml.RequestID self.class.uuid
+          xml.CertifiedIntermediary do
+            xml.AccountID shipper.number
+            xml.PassPhrase shipper.passphrase
+          end
+          xml.NewPassPhrase passphrase
+        end
+        xml.target!
+      end
+
       def commit(action, request, test = false)
         resource = RESOURCES[action]
         ssl_post("#{test ? TEST_URL : LIVE_URL}/#{resource[0]}", resource[1] + '=' + request)
-      end
-
-      def get_postage_label
       end
 
       def buy_postage

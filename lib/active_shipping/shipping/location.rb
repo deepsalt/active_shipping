@@ -4,6 +4,7 @@ module ActiveMerchant #:nodoc:
       
       attr_accessor :options,
                   :number,
+                  :passphrase,
                   :name,
                   :attention,
                   :country,

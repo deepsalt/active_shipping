@@ -29,6 +29,7 @@ require 'rubygems'
 require 'active_support'
 require 'ftools'
 require 'money'
+require 'uuid'
 
 require 'vendor/xml_node/lib/xml_node'
 require 'vendor/quantified/lib/quantified'
