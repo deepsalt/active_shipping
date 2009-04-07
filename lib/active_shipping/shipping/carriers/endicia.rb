@@ -24,29 +24,31 @@ module ActiveMerchant
         packages.each do |package|
           request = build_label_request(shipment, package)
           response = commit(:get_postage_label, request, true)
-          puts response
+          parse_label_response(package, response)
+          shipment.labels << package.label
         end
+        shipment
       end
 
       private
 
       def requirements
-        [:account_id, :passphrase]
+        [:partner_id, :passphrase]
       end
 
       def build_label_request(shipment, package)
         xml = Builder::XmlMarkup.new
         xml.instruct!
         xml.LabelRequest('Test' => 'YES') do
-          xml.RequesterID
-          xml.AccountID @options[:account_id]
+          xml.RequesterID @options[:partner_id]
+          xml.AccountID shipment.shipper.number
           xml.PassPhrase @options[:passphrase]
           xml.MailClass shipment.service
           xml.WeightOz package.ounces
           xml.MailpieceShape 'Parcel'
           xml.Services 'InsuredMail' => 'OFF', 'SignatureConfirmation' => 'OFF'
-          xml.PartnerCustomerID
-          xml.PartnerTransactionID
+          xml.PartnerCustomerID shipment.shipper.attention
+          xml.PartnerTransactionID shipment.number
           add_location_element(xml, 'To', shipment.destination)
           add_location_element(xml, 'From', shipment.origin)
           xml.ResponseOptions 'PostagePrice' => 'TRUE'
@@ -71,20 +73,24 @@ module ActiveMerchant
           [object.phone, 'Phone']
         ]
         values.select {|v, n| !v.blank?}.each do |v, n|
-          xml.tag!(name + n, v)
+          if name == 'From' && %w(Address1 Address2 Address3).include?(n)
+            xml.tag!('Return' + n, v)
+          else
+            xml.tag!(name + n, v)
+          end
         end
       end
 
       def parse_label_response(package, response)
         xml = REXML::Document.new(response)
         label_response = xml.elements['/LabelRequestResponse']
-        if label_response.text('Status') != '1'
-          package.errors << 'Something went wrong'
+        if (code = label_response.text('Status')) != '0'
+          package.errors << ResponseError.new(code, label_response.text('ErrorMessage'))
           return false
         end
         package.label = Base64.decode64(label_response.text('Base64LabelImage'))
         package.tracking = label_response.text('TrackingNumber')
-        package.cost = Money(label_response.text('FinalPostage').to_f * 100)
+        package.cost = Money.new(label_response.text('FinalPostage').to_f * 100)
         package
       end
 
@@ -133,6 +139,15 @@ module ActiveMerchant
       end
 
       def multi_location_carrier_pickup
+      end
+
+      class ResponseError < RuntimeError
+        attr :code, :message
+
+        def initialize(code, message)
+          @code = code
+          @message = message
+        end
       end
     end
   end
