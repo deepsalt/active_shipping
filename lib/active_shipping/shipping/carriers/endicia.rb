@@ -9,7 +9,8 @@ module ActiveMerchant
       TEST_URL = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
 
       RESOURCES = {
-        :get_postage_label, ['GetPostageLabelXML', 'labelRequestXML']
+        :get_postage_label => ['GetPostageLabelXML', 'labelRequestXML'],
+        :change_passphrase => ['ChangePassPhraseXML', 'changePassPhraseRequestXML'],
       }
 
       def self.uuid
@@ -33,6 +34,15 @@ module ActiveMerchant
           shipment.labels << package.label
         end
         shipment
+      end
+
+      def change_passphrase(shipper, passphrase = nil)
+        passphrase ||= ActiveSupport::SecureRandom.base64(64)
+        request = build_change_passphrase_request(shipper, passphrase)
+        response = commit(:change_passphrase, request, true)
+        parse_change_passphrase_response(shipper, response)
+        shipper.passphrase = passphrase
+        shipper
       end
 
       private
@@ -99,8 +109,7 @@ module ActiveMerchant
         package
       end
 
-      def build_change_passphrase_request(shipper, passphrase = nil)
-        passphrase ||= ActiveSupport::SecureRandom.base64(64)
+      def build_change_passphrase_request(shipper, passphrase)
         xml = Builder::XmlMarkup.new
         xml.instruct!
         xml.ChangePassPhraseRequest do
@@ -115,6 +124,14 @@ module ActiveMerchant
         xml.target!
       end
 
+      def parse_change_passphrase_response(shipper, response)
+        xml = REXML::Document.new(response)
+        root = xml.elements['/ChangePassPhraseRequestResponse']
+        if (code = root.text('Status')) != '0'
+          raise ResponseError.new(code, root.text('ErrorMessage'))
+        end
+        shipper
+      end
       def commit(action, request, test = false)
         resource = RESOURCES[action]
         ssl_post("#{test ? TEST_URL : LIVE_URL}/#{resource[0]}", resource[1] + '=' + request)

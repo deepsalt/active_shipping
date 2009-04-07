@@ -19,4 +19,12 @@ class EndiciaTest < Test::Unit::TestCase
     assert shipment.errors.empty?
     assert_equal shipment.packages.length, shipment.labels.length
   end
+
+  def test_change_passphrase
+    shipper = @locations[:real_google_as_commercial].dup
+    shipper.number = '123456'
+    shipper.passphrase = 'abcdef'
+    @carrier.change_passphrase(shipper)
+    assert_not_equal 'abcdef', shipper.passphrase
+  end
 end
