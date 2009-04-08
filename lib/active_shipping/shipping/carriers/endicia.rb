@@ -12,6 +12,17 @@ module ActiveMerchant
         :get_postage_label => ['GetPostageLabelXML', 'labelRequestXML'],
         :change_passphrase => ['ChangePassPhraseXML', 'changePassPhraseRequestXML'],
         :buy_postage => ['BuyPostageXML', 'recreditRequestXML'],
+        :postage_rate => ['CalcualtePostageRateXML', 'postageRateRequestXML'],
+      }
+
+      SERVICES = {
+        'Express' => 'Express Mail',
+        'First' => 'First-Class Mail',
+        'LibraryMail' => 'Library Mail',
+        'MediaMail' => 'Media Mail',
+        'ParcelPost' => 'Parcel Post',
+        'ParcelSelect' => 'Parcel Select',
+        'Priority' => 'Priority Mail'
       }
 
       def self.uuid
@@ -53,7 +64,29 @@ module ActiveMerchant
         shipper
       end
 
-      private
+      def find_rates(shipper, shipment, services = nil)
+        if services
+          if services.length != (services = services.to_set).length
+            raise 'Duplicate services requested', ArgumentError
+          end
+          unless (services - SERVICES.keys).empty?
+            raise 'Unknown services requested', ArgumentError
+          end
+        else
+          services ||= SERVICES.keys
+        end
+        rates = {}
+        services.each do |service|
+          cost = shipment.packages.inject(Money.new(0)) do |total, package|
+            request = build_postage_rate_request(shipper, shipment, package, service)
+            response = commit(:postage_rate, request, true)
+            parse_postage_rate_response(package, response)
+            total += package.cost
+          end
+          rates[service] = cost
+        end
+        rates
+      end
 
       def requirements
         [:partner_id]
@@ -67,19 +100,23 @@ module ActiveMerchant
           xml.AccountID shipment.shipper.number
           xml.PassPhrase shipment.shipper.passphrase
           xml.MailClass shipment.service
-          xml.WeightOz package.ounces
-          xml.MailpieceShape 'Parcel'
+          add_package(xml, package)
           xml.Services 'InsuredMail' => 'OFF', 'SignatureConfirmation' => 'OFF'
           xml.PartnerCustomerID shipment.shipper.attention
           xml.PartnerTransactionID shipment.number
-          add_location_element(xml, 'To', shipment.destination)
-          add_location_element(xml, 'From', shipment.origin)
+          add_location(xml, 'To', shipment.destination)
+          add_location(xml, 'From', shipment.origin)
           xml.ResponseOptions 'PostagePrice' => 'TRUE'
         end
         xml.target!
       end
 
-      def add_location_element(xml, name, object)
+      def add_package(xml, package)
+        xml.WeightOz package.ounces
+        xml.MailpieceShape 'Parcel'
+      end
+
+      def add_location(xml, name, object)
         if object.attention.blank?
           xml.tag!(name + 'Name', object.name)
         else
@@ -113,18 +150,9 @@ module ActiveMerchant
       end
 
       def build_change_passphrase_request(shipper, passphrase)
-        xml = Builder::XmlMarkup.new
-        xml.instruct!
-        xml.ChangePassPhraseRequest do
-          xml.RequesterID @options[:partner_id]
-          xml.RequestID self.class.uuid
-          xml.CertifiedIntermediary do
-            xml.AccountID shipper.number
-            xml.PassPhrase shipper.passphrase
-          end
+        build_request('ChangePassPhraseRequest', shipper) do |xml|
           xml.NewPassPhrase passphrase
         end
-        xml.target!
       end
 
       def parse_change_passphrase_response(shipper, response)
@@ -133,15 +161,7 @@ module ActiveMerchant
       end
 
       def build_recredit_request(shipper, amount)
-        xml = Builder::XmlMarkup.new
-        xml.instruct!
-        xml.RecreditRequest do
-          xml.RequesterID @options[:partner_id]
-          xml.RequestID self.class.uuid
-          xml.CertifiedIntermediary do
-            xml.AccountID shipper.number
-            xml.PassPhrase shipper.passphrase
-          end
+        build_request('RecreditRequest', shipper) do |xml|
           xml.RecreditAmount amount.to_s
         end
       end
@@ -149,6 +169,33 @@ module ActiveMerchant
       def parse_recredit_response(shipper, response)
         parse_response(response, 'RecreditRequestResponse')
         shipper
+      end
+
+      def build_postage_rate_request(shipper, shipment, package, service)
+        build_request('PostageRateRequest', shipper) do |xml|
+          xml.MailClass service
+          add_package(xml, package)
+          xml.FromPostalCode shipment.origin.postal_code
+          xml.ToPostalCode shipment.destination.postal_code
+        end
+      end
+
+      def parse_postage_rate_response(package, response)
+      end
+
+      def build_request(name, shipper)
+        xml = Builder::XmlMarkup.new
+        xml.instruct!
+        xml.tag!(name) do
+          xml.RequesterID @options[:partner_id]
+          xml.RequestID self.class.uuid
+          xml.CertifiedIntermediary do
+            xml.AccountID shipper.number
+            xml.PassPhrase shipper.passphrase
+          end
+          yield xml
+        end
+        xml.target!
       end
 
       def parse_response(response, root_name)
