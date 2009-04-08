@@ -25,4 +25,10 @@ class EndiciaTest < Test::Unit::TestCase
     @carrier.change_passphrase(@shipper)
     assert_not_equal old, @shipper.passphrase
   end
+
+  def test_buy_postage
+    assert_nothing_raised do
+      @carrier.buy_postage(@shipper, Money.new(5000))
+    end
+  end
 end

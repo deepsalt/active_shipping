@@ -11,6 +11,7 @@ module ActiveMerchant
       RESOURCES = {
         :get_postage_label => ['GetPostageLabelXML', 'labelRequestXML'],
         :change_passphrase => ['ChangePassPhraseXML', 'changePassPhraseRequestXML'],
+        :buy_postage => ['BuyPostageXML', 'recreditRequestXML'],
       }
 
       def self.uuid
@@ -46,7 +47,10 @@ module ActiveMerchant
       end
 
       def buy_postage(shipper, amount)
-        request = build_postage_request(shipper, amount)
+        request = build_recredit_request(shipper, amount)
+        response = commit(:buy_postage, request, true)
+        parse_recredit_response(shipper, response)
+        shipper
       end
 
       private
@@ -149,6 +153,15 @@ module ActiveMerchant
           end
           xml.RecreditAmount amount.to_s
         end
+      end
+
+      def parse_recredit_response(shipper, response)
+        xml = REXML::Document.new(response)
+        root = xml.elements['/RecreditRequestResponse']
+        if (code = root.text('Status')) != '0'
+          raise ResponseError.new(code, root.text('ErrorMessage'))
+        end
+        shipper
       end
 
       def commit(action, request, test = false)
