@@ -105,15 +105,10 @@ module ActiveMerchant
       end
 
       def parse_label_response(package, response)
-        xml = REXML::Document.new(response)
-        label_response = xml.elements['/LabelRequestResponse']
-        if (code = label_response.text('Status')) != '0'
-          package.errors << ResponseError.new(code, label_response.text('ErrorMessage'))
-          return false
-        end
-        package.label = Base64.decode64(label_response.text('Base64LabelImage'))
-        package.tracking = label_response.text('TrackingNumber')
-        package.cost = Money.new(label_response.text('FinalPostage').to_f * 100)
+        root = parse_response(response, 'LabelRequestResponse')
+        package.label = Base64.decode64(root.text('Base64LabelImage'))
+        package.tracking = root.text('TrackingNumber')
+        package.cost = Money.new(root.text('FinalPostage').to_f * 100)
         package
       end
 
@@ -133,11 +128,7 @@ module ActiveMerchant
       end
 
       def parse_change_passphrase_response(shipper, response)
-        xml = REXML::Document.new(response)
-        root = xml.elements['/ChangePassPhraseRequestResponse']
-        if (code = root.text('Status')) != '0'
-          raise ResponseError.new(code, root.text('ErrorMessage'))
-        end
+        parse_response(response, 'ChangePassPhraseRequestResponse')
         shipper
       end
 
@@ -156,12 +147,17 @@ module ActiveMerchant
       end
 
       def parse_recredit_response(shipper, response)
+        parse_response(response, 'RecreditRequestResponse')
+        shipper
+      end
+
+      def parse_response(response, root_name)
         xml = REXML::Document.new(response)
-        root = xml.elements['/RecreditRequestResponse']
+        root = xml.elements['/' + root_name]
         if (code = root.text('Status')) != '0'
           raise ResponseError.new(code, root.text('ErrorMessage'))
         end
-        shipper
+        root
       end
 
       def commit(action, request, test = false)
