@@ -31,4 +31,14 @@ class EndiciaTest < Test::Unit::TestCase
       @carrier.buy_postage(@shipper, Money.new(5000))
     end
   end
+
+  def test_find_rates
+    origin = @locations[:real_google_as_commercial]
+    destination = @locations[:beverly_hills]
+    packages = [@packages[:just_ounces], @packages[:chocolate_stuff]]
+    shipment = Shipment.new(:origin => origin, :destination => destination, :packages => packages)
+    rates = @carrier.find_rates(@shipper, shipment, 'Priority')
+    assert_equal rates.keys, ['Priority']
+    assert rates['Priority'].cents > 0
+  end
 end

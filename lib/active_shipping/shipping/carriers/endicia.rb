@@ -12,7 +12,7 @@ module ActiveMerchant
         :get_postage_label => ['GetPostageLabelXML', 'labelRequestXML'],
         :change_passphrase => ['ChangePassPhraseXML', 'changePassPhraseRequestXML'],
         :buy_postage => ['BuyPostageXML', 'recreditRequestXML'],
-        :postage_rate => ['CalcualtePostageRateXML', 'postageRateRequestXML'],
+        :postage_rate => ['CalculatePostageRateXML', 'postageRateRequestXML'],
       }
 
       SERVICES = {
@@ -66,6 +66,7 @@ module ActiveMerchant
 
       def find_rates(shipper, shipment, services = nil)
         if services
+          services = Array(services)
           if services.length != (services = services.to_set).length
             raise 'Duplicate services requested', ArgumentError
           end
@@ -181,6 +182,9 @@ module ActiveMerchant
       end
 
       def parse_postage_rate_response(package, response)
+        root = parse_response(response, 'PostageRateResponse')
+        package.cost = Money.new(root.text('Postage/Rate').to_f * 100)
+        package
       end
 
       def build_request(name, shipper)
