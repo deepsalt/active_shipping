@@ -8,6 +8,8 @@ module ActiveMerchant
 
       TEST_URL = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
 
+      LIVE_URL = 'https://www.envmgr.com/LabelService/EwsLabelService.asmx'
+
       RESOURCES = {
         :get_postage_label => ['GetPostageLabelXML', 'labelRequestXML'],
         :change_passphrase => ['ChangePassPhraseXML', 'changePassPhraseRequestXML'],
@@ -37,11 +39,11 @@ module ActiveMerchant
           :destination => destination,
           :packages => packages,
           :number => options[:shipment_number],
-          :service => (options[:service] || 'MediaMail')
+          :service => options[:service]
         )
         packages.each do |package|
           request = build_label_request(shipment, package)
-          response = commit(:get_postage_label, request, true)
+          response = commit(:get_postage_label, request)
           parse_label_response(package, response)
           shipment.labels << package.label
         end
@@ -51,7 +53,7 @@ module ActiveMerchant
       def change_passphrase(shipper, passphrase = nil)
         passphrase ||= ActiveSupport::SecureRandom.base64(64)
         request = build_change_passphrase_request(shipper, passphrase)
-        response = commit(:change_passphrase, request, true)
+        response = commit(:change_passphrase, request)
         parse_change_passphrase_response(shipper, response)
         shipper.passphrase = passphrase
         shipper
@@ -59,7 +61,7 @@ module ActiveMerchant
 
       def buy_postage(shipper, amount)
         request = build_recredit_request(shipper, amount)
-        response = commit(:buy_postage, request, true)
+        response = commit(:buy_postage, request)
         parse_recredit_response(shipper, response)
         shipper
       end
@@ -80,7 +82,7 @@ module ActiveMerchant
         services.each do |service|
           cost = shipment.packages.inject(Money.new(0)) do |total, package|
             request = build_postage_rate_request(shipper, shipment, package, service)
-            response = commit(:postage_rate, request, true)
+            response = commit(:postage_rate, request)
             parse_postage_rate_response(package, response)
             total += package.cost
           end
@@ -211,9 +213,10 @@ module ActiveMerchant
         root
       end
 
-      def commit(action, request, test = false)
+      def commit(action, request)
         resource = RESOURCES[action]
-        ssl_post("#{test ? TEST_URL : LIVE_URL}/#{resource[0]}", resource[1] + '=' + request)
+        base_url = test_mode? ? TEST_URL : LIVE_URL
+        ssl_post("#{base_url}/#{resource[0]}", resource[1] + '=' + request)
       end
 
       def calculate_postage_rate

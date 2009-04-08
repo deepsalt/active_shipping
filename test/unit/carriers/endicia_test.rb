@@ -4,7 +4,7 @@ class EndiciaTest < Test::Unit::TestCase
   def setup
     @packages  = TestFixtures.packages
     @locations = TestFixtures.locations
-    @carrier = Endicia.new(:partner_id => '123456')
+    @carrier = Endicia.new(:partner_id => '123456', 'test' => true)
     @shipper = @locations[:real_google_as_commercial].dup
     @shipper.number = '123456'
     @shipper.passphrase = 'foobar'
