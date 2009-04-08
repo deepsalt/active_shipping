@@ -31,21 +31,12 @@ module ActiveMerchant
         @@uuid.generate
       end
 
-      def buy_shipping_labels(shipper, origin, destination, packages, options = {})
-        shipment = Shipment.new(
-          :shipper => shipper,
-          :payer => (options[:payer] || shipper),
-          :origin => origin,
-          :destination => destination,
-          :packages => packages,
-          :number => options[:shipment_number],
-          :service => options[:service]
-        )
-        packages.each do |package|
+      def buy_shipping_labels(shipment)
+        shipment.labels = shipment.packages.map do |package|
           request = build_label_request(shipment, package)
           response = commit(:get_postage_label, request)
           parse_label_response(package, response)
-          shipment.labels << package.label
+          package.label
         end
         shipment
       end
@@ -66,7 +57,7 @@ module ActiveMerchant
         shipper
       end
 
-      def find_rates(shipper, shipment, services = nil)
+      def find_rates(shipment, services = nil)
         if services
           services = Array(services)
           if services.length != (services = services.to_set).length
@@ -81,7 +72,7 @@ module ActiveMerchant
         rates = {}
         services.each do |service|
           cost = shipment.packages.inject(Money.new(0)) do |total, package|
-            request = build_postage_rate_request(shipper, shipment, package, service)
+            request = build_postage_rate_request(shipment, package, service)
             response = commit(:postage_rate, request)
             parse_postage_rate_response(package, response)
             total += package.cost
@@ -174,8 +165,8 @@ module ActiveMerchant
         shipper
       end
 
-      def build_postage_rate_request(shipper, shipment, package, service)
-        build_request('PostageRateRequest', shipper) do |xml|
+      def build_postage_rate_request(shipment, package, service)
+        build_request('PostageRateRequest', shipment.shipper) do |xml|
           xml.MailClass service
           add_package(xml, package)
           xml.FromPostalCode shipment.origin.postal_code
@@ -258,6 +249,10 @@ module ActiveMerchant
         def initialize(code, message)
           @code = code
           @message = message
+        end
+
+        def to_s
+          "#{@code}: #{@message}"
         end
       end
     end

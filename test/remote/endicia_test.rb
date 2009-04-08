@@ -9,15 +9,19 @@ class EndiciaTest < Test::Unit::TestCase
     @shipper.number = '123456'
     @shipper.passphrase = 'abcdef'
     @shipper.attention = 'Foo Bar'
+    @shipment = Shipment.new(
+      :shipper => @shipper,
+      :origin => @locations[:real_google_as_commercial],
+      :destination => @locations[:beverly_hills],
+      :packages => [@packages[:just_ounces], @packages[:chocolate_stuff]],
+      :number => '987654'
+    )
   end
 
   def test_buy_shipping_labels
-    origin = @locations[:real_google_as_commercial]
-    destination = @locations[:beverly_hills]
-    packages = [@packages[:just_ounces], @packages[:chocolate_stuff]]
-    shipment = @carrier.buy_shipping_labels(@shipper, origin, destination, packages, :test => true, :shipment_number => '987654', :service => 'Priority')
-    assert shipment.errors.empty?
-    assert_equal shipment.packages.length, shipment.labels.length
+    @shipment.service = 'Priority'
+    @carrier.buy_shipping_labels(@shipment)
+    assert_equal @shipment.packages.length, @shipment.labels.length
   end
 
   def test_change_passphrase
@@ -27,17 +31,11 @@ class EndiciaTest < Test::Unit::TestCase
   end
 
   def test_buy_postage
-    assert_nothing_raised do
-      @carrier.buy_postage(@shipper, Money.new(5000))
-    end
+    @carrier.buy_postage(@shipper, Money.new(5000))
   end
 
   def test_find_rates
-    origin = @locations[:real_google_as_commercial]
-    destination = @locations[:beverly_hills]
-    packages = [@packages[:just_ounces], @packages[:chocolate_stuff]]
-    shipment = Shipment.new(:origin => origin, :destination => destination, :packages => packages)
-    rates = @carrier.find_rates(@shipper, shipment, 'Priority')
+    rates = @carrier.find_rates(@shipment, 'Priority')
     assert_equal rates.keys, ['Priority']
     assert rates['Priority'].cents > 0
   end

@@ -25,8 +25,8 @@ class EndiciaTest < Test::Unit::TestCase
   end
 
   def test_build_postage_rate_request
-    shipment = Shipment.new(:packages => [@packages[:just_ounces], @packages[:chocolate_stuff]], :origin => @locations[:real_google_as_commercial], :destination => @locations[:beverly_hills])
-    request = @carrier.send(:build_postage_rate_request, @shipper, shipment, shipment.packages.first, 'Priority')
+    shipment = Shipment.new(:packages => [@packages[:just_ounces], @packages[:chocolate_stuff]], :origin => @locations[:real_google_as_commercial], :destination => @locations[:beverly_hills], :shipper => @shipper)
+    request = @carrier.send(:build_postage_rate_request, shipment, shipment.packages.first, 'Priority')
     assert_nothing_raised do
       REXML::Document.new(request)
     end

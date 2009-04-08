@@ -1,14 +1,13 @@
 module ActiveMerchant
   module Shipping
     class Shipment
-      attr_accessor :number, :price, :tracking, :errors, :shipper, :payer,
-        :origin, :destination, :service, :labels, :packages
+      attr_accessor :number, :price, :tracking, :shipper, :payer,
+        :origin, :destination, :service, :labels, :packages, :errors
 
       def initialize(attributes = {})
         @number = attributes[:number]
         @price = attributes[:price]
         @tracking = attributes[:tracking]
-        @errors = attributes[:errors] || []
         @shipper = attributes[:shipper]
         @payer = attributes[:payer]
         @origin = attributes[:origin]
@@ -16,6 +15,7 @@ module ActiveMerchant
         @packages = attributes[:packages]
         @service = attributes[:service]
         @attributes = attributes
+        @errors = []
         @labels = []
       end
 
