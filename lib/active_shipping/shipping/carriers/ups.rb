@@ -105,11 +105,15 @@ module ActiveMerchant
         expected_price = options[:expected_price]
         price_epsilon = options[:price_epsilon] || Money.new(0)
         request = build_shipment_confirm_request(shipment)
+        shipment.log(request)
         response = commit(:shipment_confirm, save_request(build_access_request + request), (options[:test] || false))
+        shipment.log(response)
         parse_shipment_confirm(shipment, response)
         if shipment.price && (!expected_price || (shipment.price - expected_price) < price_epsilon)
           request = build_shipment_accept_request(shipment)
+          shipment.log(request)
           response = commit(:shipment_accept, save_request(build_access_request + request), (options[:test] || false))
+          shipment.log(response)
           parse_shipment_accept(shipment, response)
         end
         shipment
@@ -117,12 +121,15 @@ module ActiveMerchant
 
       def cancel_shipment(shipment, options = {})
         request = build_void_shipment_request(shipment)
+        shipment.log(request)
         response = commit(:void_shipment, save_request(build_access_request + request), (options[:test] || false))
+        shipment.log(response)
         parse_void_shipment(shipment, response)
         shipment
       end
 
       protected
+
       def build_access_request
         xml_request = XmlNode.new('AccessRequest') do |access_request|
           access_request << XmlNode.new('AccessLicenseNumber', @options[:key])
@@ -393,16 +400,16 @@ module ActiveMerchant
           xml.Request do
             xml.RequestAction 'ShipConfirm'
             xml.RequestOption 'validate'
-            add_reference_element(xml, shipment)
+            add_reference(xml, shipment)
           end
           xml.LabelSpecification do
             xml.LabelPrintMethod { xml.Code 'GIF' }
             xml.LabelImageFormat { xml.Code 'GIF' }
           end
           xml.Shipment do
-            add_location_element(xml, 'Shipper', shipment.shipper)
-            add_location_element(xml, 'ShipTo', shipment.destination)
-            add_location_element(xml, 'ShipFrom', shipment.origin)
+            add_location(xml, 'Shipper', shipment.shipper)
+            add_location(xml, 'ShipTo', shipment.destination)
+            add_location(xml, 'ShipFrom', shipment.origin)
             xml.PaymentInformation do
               xml.Prepaid do
                 xml.BillShipper do
@@ -411,8 +418,14 @@ module ActiveMerchant
               end
             end
             xml.Service { xml.Code shipment.service }
+            if shipment.value
+              xml.InvoiceLineTotal do
+                xml.CurrencyCode shipment.value.currency
+                xml.MonetaryValue shipment.value.cents.to_f / 100
+              end
+            end
             shipment.packages.each do |package|
-              add_package_element(xml, package, shipment.origin)
+              add_package(xml, package, shipment.origin)
             end
           end
         end
@@ -425,7 +438,7 @@ module ActiveMerchant
         xml.ShipmentAcceptRequest do
           xml.Request do
             xml.RequestAction 'ShipAccept'
-            add_reference_element(xml, shipment)
+            add_reference(xml, shipment)
           end
           xml.ShipmentDigest shipment[:digest]
         end
@@ -439,13 +452,13 @@ module ActiveMerchant
           xml.Request do
             xml.RequestAction '1'
           end
-          add_reference_element(xml, shipment)
+          add_reference(xml, shipment)
         end
         xml.ShipmentIdentificationNumber shipment.tracking
         xml.target!
       end
 
-      def add_reference_element(xml, shipment)
+      def add_reference(xml, shipment)
         if shipment.number
           xml.TransactionReference do
             xml.CustomerContext shipment.number
@@ -453,7 +466,7 @@ module ActiveMerchant
         end
       end
 
-      def add_package_element(xml, package, origin)
+      def add_package(xml, package, origin)
         raise package.class.to_s unless package.kind_of?(ActiveMerchant::Shipping::Package)
         imperial = ['US','LR','MM'].include?(origin.country_code(:alpha2))
         xml.Package do
@@ -488,14 +501,21 @@ module ActiveMerchant
             value = (value.to_f * 1000).round / 1000.0 # 3 decimals
             xml.Weight [value, 0.1].max.to_s
           end
+          if package.insured_value
+            xml.PackageServiceOptions do
+              xml.InsuredValue do
+                xml.CurrencyCode package.insured_value.currency
+                xml.MonetaryValue package.insured_value.cents.to_f / 100
+              end
+            end
+          end
           # not implemented:  * Shipment/Package/LargePackageIndicator element
           #                   * Shipment/Package/ReferenceNumber element
-          #                   * Shipment/Package/PackageServiceOptions element
           #                   * Shipment/Package/AdditionalHandling element  
         end
       end
 
-      def add_location_element(xml, name, object)
+      def add_location(xml, name, object)
         xml.tag!(name) do
           node_name = (name == 'Shipper' ? 'Name' : 'CompanyName')
           xml.tag!(node_name, object.name)

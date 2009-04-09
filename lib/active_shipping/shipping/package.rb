@@ -5,7 +5,7 @@ module ActiveMerchant #:nodoc:
       
       cattr_accessor :default_options
       attr_reader :options, :value, :currency, :description
-      attr_accessor :tracking, :label, :cost, :errors
+      attr_accessor :tracking, :label, :cost, :errors, :insured_value
 
       # Package.new(100, [10, 20, 30], :units => :metric)
       # Package.new(Mass.new(100, :grams), [10, 20, 30].map {|m| Length.new(m, :centimetres)})
@@ -33,7 +33,7 @@ module ActiveMerchant #:nodoc:
         @value = Package.cents_from(options[:value])
         @currency = options[:currency] || (options[:value].currency if options[:value].respond_to?(:currency))
         @cylinder = (options[:cylinder] || options[:tube]) ? true : false
-
+        @insured_value = options[:insured_value]
         @errors = []
       end
   

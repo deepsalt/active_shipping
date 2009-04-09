@@ -182,4 +182,13 @@ class UPSTest < Test::Unit::TestCase
     shipment = @carrier.buy_shipping_labels(shipper, origin, destination, packages, :test => true)
     assert_equal packages.length, shipment.labels.length
   end
+
+  def test_buy_shipping_labels_for_high_value_packages
+    origin = @locations[:real_google_as_commercial]
+    shipper = origin.dup
+    shipper.number = fixtures(:ups)[:account]
+    destination = @locations[:beverly_hills]
+    packages = [@packages[:diamonds]]
+    shipment = @carrier.buy_shipping_labels(shipper, origin, destination, packages, :test => true)
+  end
 end
